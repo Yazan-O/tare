@@ -1,11 +1,13 @@
 """The port under test as a case declares it: a runner in tare.json sides.local, a nested git clone under
-port/ with the gate's hooks, `git -C port commit` routed to the case."""
+port/ with the gate's hooks, `git -C port commit` routed to the case, and explain's known causes."""
+import copy
 import json
 import tempfile
 import unittest
+from pathlib import Path
 
-from tare import config, gate
-from tests.helpers import BALANCED, RED, Sandbox
+from tare import config, explain, gate
+from tests.helpers import BALANCED, RED, Sandbox, load
 
 RUNNER = '''import argparse, pathlib, shutil
 ap = argparse.ArgumentParser()
@@ -15,6 +17,13 @@ out = pathlib.Path(a.out)
 shutil.copyfile("fixtures/answer_key/totals.dat", out / "totals.dat")
 pathlib.Path(a.sandbox, "ran.txt").write_text(" ".join(sorted(p.name for p in pathlib.Path(a.input).iterdir())))
 '''
+
+
+def neither_doc():
+    """The half-up port's output with A10001 total_lb 12.34: neither truncation (10.09) nor half-up (10.10)."""
+    doc = copy.deepcopy(load(RED))
+    doc["files"]["totals"][0]["total_lb"] = "12.34"
+    return doc
 
 
 class LocalRunner(unittest.TestCase):
@@ -128,6 +137,56 @@ class NestedClone(unittest.TestCase):
         self.assertEqual(self.weigh(RED), 1)
         r = self.sb.gate({"tool": "execute_command", "input": {"command": "git -C port commit -am x"}})
         self.assertEqual(r.returncode, 2, r.stdout)
+
+
+class KnownCauses(unittest.TestCase):
+    def setUp(self):
+        self.sb = Sandbox()
+        cfg = self.sb.cfg()
+        cfg["sides"]["halfup"].update(source="ports/halfup", causes=[{
+            "what": "the pounds are rounded", "port": "Port.java:46", "cobol": ["mainframe/cbl/UNITSUM.cbl:100"],
+            "fields": ["total_lb"]}])
+        (self.sb.root / "tare.json").write_text(json.dumps(cfg), encoding="utf-8")
+
+    def tearDown(self):
+        self.sb.close()
+
+    def test_rounding_rule_only_when_a_rounding_reconstructs_the_port(self):
+        self.sb.put_run("halfup", RED)
+        text = explain.explain(self.sb.root, port="halfup")
+        self.assertIn("truncation occurs unless ROUNDED is specified.", text)
+        self.sb.put_run("halfup", neither_doc())
+        text = explain.explain(self.sb.root, port="halfup")
+        self.assertIn("port wrote              12.34   matches neither truncation nor half-up", text)
+        self.assertNotIn("truncation occurs unless ROUNDED is specified.", text)
+        self.assertNotIn("5. The rule", text)
+        self.assertIn("Neither truncation nor rounding gives the port's value", text)
+
+    def test_causes_quote_both_sources(self):
+        self.sb.put_run("halfup", neither_doc())
+        text = explain.explain(self.sb.root, port="halfup")
+        self.assertIn("1. the pounds are rounded", text)
+        self.assertIn("  100 |            COMPUTE OUT-TOTAL-LB = OUT-TOTAL-KG * 2.20462", text)
+        self.assertIn("ports/halfup/Port.java:46", text)
+        self.assertIn("setScale(2, RoundingMode.HALF_UP)", text)
+        # a field with no difference cites no cause
+        self.assertNotIn("known causes", explain.explain(self.sb.root, port="halfup", field="qty"))
+
+
+class HeroCaseExplain(unittest.TestCase):
+    """The recorded java-ai output for commune 010001: the fee and waste-tax defects, never the ROUNDED rule."""
+    CASE = Path(__file__).resolve().parents[1] / "cases" / "taxe_fonciere"
+
+    def test_010001_tctdu(self):
+        if not (self.CASE / "cache" / "cobol" / "EFITA3B8.cob").is_file():
+            self.skipTest("the DGFiP COBOL is not fetched (python -m tare fetch)")
+        text = explain.explain(self.CASE, key="010001", field="tctdu", port="java-ai")
+        self.assertNotIn("truncation occurs unless ROUNDED is specified.", text)
+        for line in ("cache/cobol/EFITA3B8.cob:499-502", "cache/cobol/EFITA3B8.cob:99-104",
+                     "cache/cobol/EFITA3B8.cob:414-416", "BuiltPropertyCalculator.java:24-27",
+                     "FRAIS_300_FRS = DecimalUtils.of(0.0800, 4)", "RetourB.java:95-102",
+                     "MOVE 0.0300  TO W-F300FRS"):
+            self.assertIn(line, text)
 
 
 if __name__ == "__main__":

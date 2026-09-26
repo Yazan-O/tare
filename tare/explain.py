@@ -570,15 +570,63 @@ def explain(root: Path, file=None, key=None, field=None, port=None, answer=None)
                       f"   half-up to {scale} places (ROUNDED)       = {halfup}",
                       f"   answer key wrote {av:>12}   {which(av)}",
                       f"   port wrote       {pv:>12}   {which(pv)}",
-                      "   The statement has a ROUNDED phrase." if rounded else "   The statement has no ROUNDED phrase.",
-                      "", f"5. The rule  {IBM_SOURCE}", f"   \"{IBM_RULE}\"", f"   {IBM_URL}"]
+                      "   The statement has a ROUNDED phrase." if rounded else "   The statement has no ROUNDED phrase."]
+                if Decimal(str(pv)) in (trunc, halfup):
+                    o += ["", f"5. The rule  {IBM_SOURCE}", f"   \"{IBM_RULE}\"", f"   {IBM_URL}"]
+                else:
+                    o.append("   Neither truncation nor rounding gives the port's value: the difference is not a "
+                             "rounding rule; it comes from the operands.")
+
+    entry = config.local_entry(cfg) if side == config.PORT_SIDE else config.sides(cfg).get(side) or {}
+    if p is not None and not ledger.same(av, pv, numeric):
+        o += known_causes(root, entry, field)
 
     o += ["", "The port's line"]
-    if side in sides.declared(root):
-        e = sides.entry(root, side)
-        o.append(f"   {side}: {e.get('repo')}" + (f" @ {str(e['commit'])[:7]}" if e.get("commit") else ""))
+    if entry:
+        o.append(f"   {side}: {entry.get('repo')}" + (f" @ {str(entry['commit'])[:7]}" if entry.get("commit") else ""))
         o.append(f"   {sides.line(root, side)}")
     else:
         pats = sides.source_patterns(root, side)
         o.append(f"   {side}: not declared in tare.json 'sides'; the port's sources are {pats or 'not configured'}")
     return "\n".join(o)
+
+
+def _span(ref: str):
+    """'dir/file.cob:99-104' -> ('dir/file.cob', 99, 104); 'x:7' -> ('x', 7, 7)."""
+    path, _, lines = str(ref).rpartition(":")
+    a, _, b = lines.partition("-")
+    if not path or not a.isdigit() or (b and not b.isdigit()):
+        raise ValueError(f"not a file:line or file:first-last reference: {ref!r}")
+    return path, int(a), int(b or a)
+
+
+def _quote(base: Path, ref: str, shown: str, hint: str) -> list:
+    """The lines of one file:first-last reference, read from the file under base as it is now."""
+    path, a, b = _span(ref)
+    f = base / path
+    if not f.is_file():
+        return [f"{shown}:{a}-{b}  (not on this machine: {hint})"]
+    src = f.read_text(encoding="utf-8", errors="replace").splitlines()
+    return [f"{shown}:{a}" + (f"-{b}" if b != a else "")] + \
+        [f"{n:>5} | {src[n - 1].rstrip()}" for n in range(a, min(b, len(src)) + 1)]
+
+
+def known_causes(root: Path, entry: dict, field: str) -> list:
+    """The causes the side's registry (tare.json sides.<side>.causes) names for this field: for each, the
+    COBOL lines that produce the original's value and the port's own lines, both read from the sources. A
+    cause is {what, port: 'file:first-last' under the side's source folder, cobol: ['file:first-last' under
+    the case root], fields}."""
+    hits = [c for c in entry.get("causes") or [] if field in (c.get("fields") or [])]
+    if not hits:
+        return []
+    src = root / str(entry.get("source") or ".")
+    o = ["", f"The known causes of a difference in {field} (tare.json: this side's causes)"]
+    for n, c in enumerate(hits, 1):
+        o += ["", f"   {n}. {c.get('what')}", "   the original:"]
+        for ref in c.get("cobol") or []:
+            o += ["     " + x for x in _quote(root, ref, _span(ref)[0], "python fetch.py")]
+        if c.get("port"):
+            shown = config.rel_to(root, src / _span(c["port"])[0])
+            o += ["   the port:"] + ["     " + x for x in _quote(src, c["port"], shown,
+                                                                f"{config.rel_to(root, src)} is not fetched")]
+    return o
