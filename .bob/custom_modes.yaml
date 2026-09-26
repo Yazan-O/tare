@@ -19,7 +19,7 @@ customModes:
     groups:
       - read
       - - edit
-        - fileRegex: "^((cases/[^/]+/)?port|docs)/.*"
+        - fileRegex: "^(.*[\\\\/])?((cases[\\\\/][^\\\\/]+[\\\\/])?port|docs)[\\\\/].*"
           description: The port under test (port/, or cases/<case>/port/) and its notes only; the original side is read-only
       - execute
       - mcp
