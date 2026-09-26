@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tare parity receipt</title>
+<meta name="description" content="France's 2018 property-tax COBOL, run under GnuCOBOL, weighed against a published Java port on every commune record.">
+<style>
+@font-face{font-family:"Archivo";src:url(fonts/Archivo.woff2) format("woff2");font-weight:100 900;font-stretch:62% 125%;font-display:swap}
+@font-face{font-family:"JetBrains Mono";src:url(fonts/JetBrainsMono.woff2) format("woff2");font-weight:100 800;font-display:swap}
+:root{--bg:#FEFEFE;--ink:#1E1E1E;--ink-2:rgba(30,30,30,.62);--line:#DEDEDE;--code-bg:#F3F3F3;--red:#C8102E;--link:#0000EE;
+--font:"Archivo","Helvetica Neue",Helvetica,Arial,sans-serif;--mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+--gutter:24px;--max:1240px;--prose:720px}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--font)}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gutter)}
+a{color:var(--link)}
+nav{display:flex;justify-content:space-between;align-items:center;height:56px;border-bottom:1px solid var(--line)}
+nav .mark{font:700 18px/1 var(--font);letter-spacing:-.01em;color:var(--ink);text-decoration:none}
+nav .links a{color:var(--ink);text-decoration:none;margin-left:24px;font-size:14px}
+nav .links a:hover{text-decoration:underline}
+h1{text-wrap:balance;font-size:clamp(34px,5.4vw,72px);font-weight:500;line-height:.98;letter-spacing:-.02em;margin:0 0 24px;max-width:15em}
+h2{text-wrap:balance;font-size:28px;font-weight:500;line-height:1.1;letter-spacing:-.01em;margin:0 0 16px;max-width:26em}
+h3,.label{font:500 12px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)}
+p{max-width:var(--prose)}
+.num,.mono{font-family:var(--mono)}
+section{padding:88px 0 0}
+section+section{border-top:1px solid var(--line);margin-top:88px}
+.lede{font-size:17px;line-height:1.5;margin:0 0 40px}
+.red{color:var(--red)}
+.muted{color:var(--ink-2)}
+.hero{padding-top:64px}
+.hero .label{margin-bottom:20px}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:56px;align-items:start}
+table{border-collapse:collapse;width:100%}
+th{font:500 11px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);text-align:right;padding:0 0 10px 12px;vertical-align:bottom}
+th:first-child{text-align:left;padding-left:0}
+td{border-top:1px solid var(--line);padding:9px 0 9px 12px;text-align:right;font:400 14px/1.35 var(--mono);white-space:nowrap}
+td:first-child{text-align:left;padding-left:0;font:500 14px/1.35 var(--font);white-space:normal}
+.lbl-s{display:none}
+td:first-child .code{display:block;font:400 11px/1.3 var(--mono);color:var(--ink-2);letter-spacing:.02em}
+tr.total td{border-top:1px solid var(--ink);font-weight:500}
+tr.total td:first-child{font-weight:700}
+td.diff{color:var(--red)}
+.pen{position:relative;display:inline-block}
+.pen svg{position:absolute;left:-14px;top:-9px;width:calc(100% + 28px);height:calc(100% + 18px);overflow:visible;pointer-events:none}
+.pen path{fill:none;stroke:var(--red);stroke-width:1.6;stroke-linecap:round}
+.defect{border-top:1px solid var(--line);padding:18px 0 20px}
+.defects-head{margin-bottom:12px}
+.defect.first{border-top:1px solid var(--ink)}
+.defect h4{font:500 17px/1.25 var(--font);margin:6px 0 12px}
+.src{display:grid;grid-template-columns:64px minmax(0,1fr);gap:6px 12px;font-size:14px;margin-top:8px}
+.src .who{font:500 11px/1.9 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)}
+.src .who.red{color:var(--red)}
+.src a{font:400 12px/1.5 var(--mono);word-break:break-all}
+.src .what{display:block}
+.note{font-size:13px;color:var(--ink-2);margin-top:6px;max-width:34em}
+#counts-h2{font-size:clamp(28px,3.2vw,40px);max-width:none}
+.counts td{font-size:15px;padding-top:14px;padding-bottom:14px}
+.counts td.big{font:500 clamp(18px,2.2vw,26px)/1.1 var(--mono);letter-spacing:-.01em}
+.counts td.big.red{color:var(--red)}
+.units{margin-top:24px;font-size:13px;color:var(--ink-2)}
+.search{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:56px;align-items:start;margin-top:32px}
+.field label{display:block;margin-bottom:8px}
+.field input{width:100%;height:44px;border:1px solid var(--ink);border-radius:0;background:var(--bg);color:var(--ink);font:400 16px/1 var(--font);padding:0 12px;outline:none;-webkit-appearance:none;appearance:none}
+.field input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
+.field input:focus{box-shadow:2px 2px 0 rgba(0,0,0,.4)}
+.hits{list-style:none;border:1px solid var(--line);border-top:0;max-height:352px;overflow:auto}
+.hits:empty{display:none}
+.hits li{display:flex;justify-content:space-between;gap:12px;padding:9px 12px;border-top:1px solid var(--line);cursor:pointer;font-size:14px}
+.hits li:first-child{border-top:0}
+.hits li .num{font-size:12px;color:var(--ink-2)}
+.hits li[aria-selected=true],.hits li:hover{background:var(--code-bg)}
+.try{margin-top:16px;font-size:13px;color:var(--ink-2)}
+.try button{font:400 12px/1 var(--mono);color:var(--link);background:none;border:0;text-decoration:underline;cursor:pointer;margin-right:12px;padding:4px 0}
+.card-head{margin-bottom:18px}
+.card-head .name{font:500 26px/1.15 var(--font);letter-spacing:-.01em;margin:4px 0 6px}
+.verdict{font:500 12px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.map-head{display:flex;justify-content:space-between;align-items:end;gap:24px;flex-wrap:wrap;margin-bottom:32px}
+.map-head h2{margin:0}
+.toggle{display:inline-flex;border:1px solid var(--ink)}
+.toggle button{font:500 13px/1 var(--font);padding:11px 16px;border:0;border-radius:0;background:var(--bg);color:var(--ink);cursor:pointer}
+.toggle button+button{border-left:1px solid var(--ink)}
+.toggle button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.map-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:48px;align-items:start}
+.map-box{position:relative;width:100%;max-width:760px;aspect-ratio:1/1}
+.map-box canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+.map-tip{position:absolute;pointer-events:none;background:var(--bg);border:1px solid var(--ink);padding:6px 9px;font:400 12px/1.35 var(--mono);white-space:nowrap;display:none;z-index:2}
+.legend{list-style:none;margin-top:10px}
+.legend li{display:flex;gap:12px;align-items:baseline;border-top:1px solid var(--line);padding:12px 0}
+.legend .sw{flex:0 0 14px;height:14px;transform:translateY(2px)}
+.legend .num{margin-left:auto;font-size:14px}
+.map-cap{font-size:13px;color:var(--ink-2);margin-top:18px}
+.shots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px}
+figure img{display:block;width:100%;height:auto;border:1px solid var(--line)}
+figcaption{font-size:13px;color:var(--ink-2);margin-top:10px;max-width:40em}
+pre{background:var(--code-bg);border:1px solid var(--line);padding:16px 18px;font:400 13px/1.6 var(--mono);overflow-x:auto;white-space:pre}
+pre .c{color:var(--ink-2)}
+.log{margin-top:40px}
+.log .label{margin-bottom:8px}
+.log pre{white-space:pre-wrap;word-break:break-word;font-size:12px}
+.log pre .r{color:var(--red)}
+.srcs{list-style:none;max-width:900px;margin-top:24px}
+.srcs li{display:grid;grid-template-columns:180px minmax(0,1fr);gap:16px;border-top:1px solid var(--line);padding:14px 0;font-size:14px}
+.srcs li .label{padding-top:2px}
+footer{margin:96px 0 48px;padding-top:18px;border-top:1px solid var(--line);font:400 12px/1.5 var(--mono);color:var(--ink-2);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.skip{position:absolute;left:-9999px}
+@media (max-width:980px){
+ .hero-grid,.search,.map-grid{grid-template-columns:minmax(0,1fr);gap:40px}
+ .legend-col{max-width:420px}
+}
+@media (max-width:640px){
+ :root{--gutter:16px}
+ nav .links a:not(.gh){display:none}
+ section{padding-top:56px}
+ section+section{margin-top:56px}
+ .hero{padding-top:40px}
+ .lede{font-size:16px}
+ th,td{padding-left:8px}
+ td{font-size:13px}
+ .shots{grid-template-columns:minmax(0,1fr)}
+ .srcs li{grid-template-columns:minmax(0,1fr);gap:4px}
+ .counts td.big{font-size:17px}
+ .counts td:first-child .code{display:none}
+ .lbl-l{display:none}.lbl-s{display:inline}
+ #card td{font-size:12px;padding-left:6px}
+ #card th{padding-left:6px}
+ .toggle button{padding:11px 12px}
+}
+@media (prefers-reduced-motion:no-preference){main{animation:in .2s ease-out}@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}
+</style>
+</head>
+<body>
+<a class="skip" href="#search">Skip to commune search</a>
+<div class="wrap">
+<nav>
+  <a class="mark" href="#top">Tare</a>
+  <span class="links"><a href="#counts">Counts</a><a href="#search">Search</a><a href="#map">Map</a><a href="#gate">Gate</a><a href="#reproduce">Reproduce</a><a class="gh" href="https://github.com/Yazan-O/tare">GitHub</a></span>
+</nav>
+<main id="top">
+
+<section class="hero" id="receipt">
+  <p class="label" id="hero-label">Commune record 01001 · 2018 built-property tax</p>
+  <h1 id="hero-h1">The COBOL computes €137,415 due. The published port computes €144,041.</h1>
+  <p class="lede">Same input record, same rates. France's 2018 property-tax calculator (DGFiP's COBOL) runs unmodified under GnuCOBOL as the answer key. A public Java port, co-authored by the Qwen-Coder agent, passes its own built-property tests (4 of 4) and computes a different total.</p>
+  <div class="hero-grid">
+    <div>
+      <table id="hero-table"></table>
+    </div>
+    <div id="defects">
+      <p class="label defects-head">Where the port departs from the COBOL</p>
+      <div class="defect first">
+        <p class="label">Defect 1 · fee rates</p>
+        <h4>The 3% and 8% fee tiers carry each other's rates.</h4>
+        <div class="src">
+          <span class="who">COBOL</span>
+          <span><span class="what">3% tier: 3% and 1%. 8% tier: 8% and 4.4%.</span>
+          <a href="https://github.com/etalab/taxe-fonciere/blob/6bd40b2d78eaeb3f2635fbd7a9eb1f952d0739ba/src/EFITA3B8.cob#L99-L102">EFITA3B8.cob:99–102 @ 6bd40b2</a></span>
+          <span class="who red">Port</span>
+          <span><span class="what red">3% tier: 8% and 4.4%. 8% tier: 3% and 1%.</span>
+          <a href="https://github.com/omnipede/taxe-fonciere/blob/5124d1c07942e362922663e52dd8f2e641fb0e47/taxe-fonciere-java/src/main/java/fr/dgfip/taxefonciere/calculator/BuiltPropertyCalculator.java#L24-L27">BuiltPropertyCalculator.java:24–27 @ 5124d1c</a></span>
+        </div>
+      </div>
+      <div class="defect">
+        <p class="label">Defect 2 · total before fees</p>
+        <h4>The total before fees leaves out the household-waste tax.</h4>
+        <div class="src">
+          <span class="who">COBOL</span>
+          <span><span class="what">The waste tax is summed into the 8% tier, which enters the total.</span>
+          <a href="https://github.com/etalab/taxe-fonciere/blob/6bd40b2d78eaeb3f2635fbd7a9eb1f952d0739ba/src/EFITA3B8.cob#L398-L408">EFITA3B8.cob:398–408</a>, <a href="https://github.com/etalab/taxe-fonciere/blob/6bd40b2d78eaeb3f2635fbd7a9eb1f952d0739ba/src/EFITA3B8.cob#L479-L480">479–480</a></span>
+          <span class="who red">Port</span>
+          <span><span class="what red">Eight levies are summed; the waste tax is not one of them.</span>
+          <a href="https://github.com/omnipede/taxe-fonciere/blob/5124d1c07942e362922663e52dd8f2e641fb0e47/taxe-fonciere-java/src/main/java/fr/dgfip/taxefonciere/model/output/RetourB.java#L95-L102">RetourB.java:95–102 @ 5124d1c</a></span>
+        </div>
+      </div>
+      <p class="note" id="hero-note"></p>
+    </div>
+  </div>
+</section>
+
+<section id="counts">
+  <h2 id="counts-h2"></h2>
+  <table class="counts" id="counts-table"></table>
+  <p class="units">A commune record is one commune's 2018 REI totals and voted rates, reshaped into one calculator input. These are not household bills. Amounts are whole euros, as the calculator returns them.</p>
+</section>
+
+<section id="search">
+  <h2>Every commune record, side by side.</h2>
+  <div class="search">
+    <div>
+      <div class="field">
+        <label class="label" for="q">Commune name or INSEE code</label>
+        <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Lyon, 33063, Ajaccio" role="combobox" aria-expanded="false" aria-controls="hits" aria-autocomplete="list">
+      </div>
+      <ul class="hits" id="hits" role="listbox"></ul>
+      <p class="try" id="try"></p>
+    </div>
+    <div id="card" aria-live="polite"></div>
+  </div>
+</section>
+
+<section id="map">
+  <div class="map-head">
+    <h2 id="map-h2">Metropolitan France, one shape per commune.</h2>
+    <div class="toggle" role="group" aria-label="Port shown on the map">
+      <button type="button" id="t-ai" aria-pressed="true">Published port</button><button type="button" id="t-fx" aria-pressed="false">Repaired port</button>
+    </div>
+  </div>
+  <div class="map-grid">
+    <div class="map-box" id="map-box">
+      <canvas id="map-c" role="img" aria-label="Map of metropolitan France's communes, colored by whether the port's record differs from the COBOL's"></canvas>
+      <div class="map-tip" id="map-tip"></div>
+    </div>
+    <div class="legend-col">
+      <p class="label" id="map-side">Published port against the COBOL</p>
+      <ul class="legend">
+        <li><span class="sw" style="background:var(--red)"></span><span>Record differs</span><span class="num red" id="lg-red"></span></li>
+        <li><span class="sw" style="background:var(--ink)"></span><span>Record balances</span><span class="num" id="lg-ink"></span></li>
+      </ul>
+      <p class="map-cap" id="map-cap"></p>
+    </div>
+  </div>
+</section>
+
+<section id="gate">
+  <h2>Tare blocks Bob's <span class="mono">git commit</span> until every record balances.</h2>
+  <p class="lede">Tare weighs the port inside IBM Bob. A red weigh blocks the commit; the same commit goes through once the repaired port balances on every record.</p>
+  <div class="shots" id="shots"></div>
+  <div class="log">
+    <p class="label">The national replay, as Tare printed it</p>
+    <pre id="runlog"></pre>
+  </div>
+</section>
+
+<section id="reproduce">
+  <h2>Rerun it.</h2>
+  <pre><span class="c"># the 408 Ain commune records, from the committed fixtures (Python only, seconds)</span>
+git clone https://github.com/Yazan-O/tare &amp;&amp; cd tare
+python -m tare reproduce --offline
+
+<span class="c"># every commune, fresh: GnuCOBOL, a JDK 17+ and Maven (cases/taxe_fonciere/README.md)</span>
+cd cases/taxe_fonciere &amp;&amp; python fetch.py --full &amp;&amp; cd full
+PYTHONPATH=../../.. python -m tare answer-key
+PYTHONPATH=../../.. python -m tare reproduce</pre>
+</section>
+
+<section id="sources">
+  <h2>Sources and licences.</h2>
+  <ul class="srcs">
+    <li><span class="label">Answer key</span><span>DGFiP's 2018 built-property calculator (CTXTA3B, EFITA3B8, EFITAUX2), published by Etalab: <a href="https://github.com/etalab/taxe-fonciere/tree/6bd40b2d78eaeb3f2635fbd7a9eb1f952d0739ba">etalab/taxe-fonciere @ 6bd40b2</a>, CeCILL-2.1. Fetched at run time, never copied into Tare's repository.</span></li>
+    <li><span class="label">Published port</span><span><a href="https://github.com/omnipede/taxe-fonciere/tree/5124d1c07942e362922663e52dd8f2e641fb0e47/taxe-fonciere-java">omnipede/taxe-fonciere @ 5124d1c</a>, folder taxe-fonciere-java: one commit by hgseo-cubox-ai, co-authored by Qwen-Coder. CeCILL-2.1, fetched at run time.</span></li>
+    <li><span class="label">Repaired port</span><span>The same port with the two fixes above, applied in a build copy by <span class="mono">cases/taxe_fonciere/sides/java_port.py</span>.</span></li>
+    <li><span class="label">Input data</span><span>REI 2018, <a href="https://www.data.gouv.fr/datasets/impots-locaux-fichier-de-recensement-des-elements-dimposition-a-la-fiscalite-directe-locale-rei-4">Impôts locaux : fichier de recensement des éléments d'imposition à la fiscalité directe locale</a>, Direction générale des Finances publiques, <a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence">Licence Ouverte / Open Licence 2.0</a>. Commune-level totals and rates, no personal data. The results on this page are derived from it.</span></li>
+    <li><span class="label">Commune shapes</span><span>ADMIN EXPRESS COG, edition 2018-04-03, <a href="https://www.data.gouv.fr/datasets/admin-express-admin-express-cog-admin-express-cog-carto-admin-express-cog-carto-pe-admin-express-cog-carto-plus-pe">IGN</a>, Licence Ouverte / Open Licence 2.0. Simplified for this page.</span></li>
+    <li><span class="label">Fonts</span><span>Archivo and JetBrains Mono, SIL Open Font License 1.1 (<a href="fonts/Archivo-OFL.txt">Archivo</a>, <a href="fonts/JetBrainsMono-OFL.txt">JetBrains Mono</a>).</span></li>
+    <li><span class="label">Tare</span><span><a href="https://github.com/Yazan-O/tare">github.com/Yazan-O/tare</a>, MIT.</span></li>
+  </ul>
+</section>
+
+</main>
+<footer><span>Tare · the old program is the answer key</span><span id="foot-data"></span></footer>
+</div>
+
+<script>
+/* Bob session screenshots: add {src: "img/<file>.png", caption: "..."} entries. Empty: Tare's own scale images are shown. */
+const BOB_SHOTS = [];
+</script>
+<script src="data/communes.js"></script>
+<script src="data/run.js"></script>
+<script src="data/map.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
