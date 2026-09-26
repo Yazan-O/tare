@@ -1,0 +1,45 @@
+{
+  "side": "halfup",
+  "command": "python -m tare run-port halfup",
+  "input": "fixtures/answer_key/input",
+  "files": {
+    "totals": [
+      {
+        "id": "A10001",
+        "count": "2",
+        "qty": "5",
+        "total_kg": "4.580",
+        "total_lb": "10.10"
+      },
+      {
+        "id": "A10002",
+        "count": "2",
+        "qty": "5",
+        "total_kg": "13.677",
+        "total_lb": "30.15"
+      },
+      {
+        "id": "B20003",
+        "count": "2",
+        "qty": "11",
+        "total_kg": "3.270",
+        "total_lb": "7.21"
+      },
+      {
+        "id": "B20004",
+        "count": "2",
+        "qty": "9",
+        "total_kg": "22.087",
+        "total_lb": "48.69"
+      },
+      {
+        "id": "C30005",
+        "count": "2",
+        "qty": "17",
+        "total_kg": "5.247",
+        "total_lb": "11.57"
+      }
+    ]
+  },
+  "notes": []
+}

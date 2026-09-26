@@ -1,0 +1,67 @@
+{
+  "about": "TEST FIXTURE for Tare's self-test, not a case: a small batch program written for the test suite (shipping weights per item id).",
+  "program": "UNITSUM",
+  "cobol": {
+    "sources": ["mainframe/cbl/UNITSUM.cbl"],
+    "copybooks": ["mainframe/cpy"],
+    "flags": ["-std=ibm", "-fsign=EBCDIC"]
+  },
+  "files": {
+    "items": {
+      "from": "mainframe/data/items.txt",
+      "from_format": "lines",
+      "record_length": 20,
+      "layout": "ITEM"
+    },
+    "totals": {
+      "organization": "indexed",
+      "record_length": 40,
+      "key": {"offset": 0, "length": 6},
+      "layout": "TOTAL",
+      "output": true
+    }
+  },
+  "steps": [
+    {"program": "UNITSUM", "parm": "SELFTEST", "dd": {"ITEMFILE": "items", "TOTFILE": "totals"}}
+  ],
+  "layouts": {
+    "ITEM": {
+      "record_length": 20,
+      "key": ["id"],
+      "fields": [
+        {"name": "id", "offset": 0, "length": 6, "type": "X", "cobol": "ITEM-ID"},
+        {"name": "qty", "offset": 6, "length": 5, "type": "9", "cobol": "ITEM-QTY"},
+        {"name": "unit_kg", "offset": 11, "length": 7, "type": "9", "scale": 3, "cobol": "ITEM-UNIT-KG"}
+      ]
+    },
+    "TOTAL": {
+      "record_length": 40,
+      "key": ["id"],
+      "fields": [
+        {"name": "id", "offset": 0, "length": 6, "type": "X", "cobol": "OUT-ID"},
+        {"name": "count", "offset": 6, "length": 3, "type": "9", "cobol": "OUT-COUNT"},
+        {"name": "qty", "offset": 9, "length": 7, "type": "9", "cobol": "OUT-QTY"},
+        {"name": "total_kg", "offset": 16, "length": 11, "type": "9", "scale": 3, "cobol": "OUT-TOTAL-KG"},
+        {"name": "total_lb", "offset": 27, "length": 10, "type": "S9V9", "scale": 2, "sign": "trailing-overpunch", "cobol": "OUT-TOTAL-LB"}
+      ]
+    }
+  },
+  "sides": {
+    "exact": {
+      "runner": "java:ports/exact",
+      "repo": "examples/unitsum/ports/exact (test fixture in this repository)",
+      "commit": null,
+      "licence": "MIT",
+      "line": "ports/exact/Port.java:46  BigDecimal lb = kg.multiply(LB_PER_KG).setScale(2, RoundingMode.DOWN);"
+    },
+    "halfup": {
+      "runner": "java:ports/halfup",
+      "repo": "examples/unitsum/ports/halfup (test fixture in this repository)",
+      "commit": null,
+      "licence": "MIT",
+      "line": "ports/halfup/Port.java:46  BigDecimal lb = kg.multiply(LB_PER_KG).setScale(2, RoundingMode.HALF_UP);"
+    }
+  },
+  "expected": {"exact": "balanced", "halfup": "red"},
+  "accepted": []
+}

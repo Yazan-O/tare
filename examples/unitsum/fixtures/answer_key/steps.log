@@ -1,0 +1,5 @@
+compiled UNITSUM with cobc -m -std=ibm -fsign=EBCDIC; harness: CEE3ABD, LOADER, TPARM01 (generated from tare.json, see work/answer_key_build/harness/)
+items: 10 records of 20 bytes from mainframe/data/items.txt
+step 1: UNITSUM PARM='SELFTEST' DD ITEMFILE=items, TOTFILE=totals: return code 0
+totals: LOADER OUT  K01  RECORDS: 000000005
+records: totals 5
