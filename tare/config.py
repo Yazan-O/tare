@@ -26,18 +26,30 @@ PORT_SOURCES = ("port/**/*.java", "port/MAIN")
 # tare/ and .bob/ are taken from the case root when present there, else from the Tare package and the
 # nearest .bob/ above the case root.
 PROTECTED = ("tare.json", "fixtures", "mainframe", "tare", ".bob")
+# The case the repository opens on: from anywhere in this repository outside a case, the CLI, the MCP server
+# and the gate use it.
+DEFAULT_CASE = "cases/taxe_fonciere"
+
+
+def case_root(start: Path):
+    """The nearest folder at or above start holding tare.json; inside this repository but outside any case,
+    DEFAULT_CASE; else None."""
+    start = Path(start).resolve()
+    for d in (start, *start.parents):
+        if (d / "tare.json").is_file():
+            return d
+    top = PACKAGE_DIR.parent
+    if (start == top or top in start.parents) and (top / DEFAULT_CASE / "tare.json").is_file():
+        return top / DEFAULT_CASE
+    return None
 
 
 def repo_root() -> Path:
-    """TARE_ROOT, else the nearest folder at or above cwd holding tare.json, else the package's parent."""
+    """TARE_ROOT, else case_root(cwd), else the package's parent."""
     env = os.environ.get("TARE_ROOT")
     if env:
         return Path(env).resolve()
-    cwd = Path.cwd().resolve()
-    for d in (cwd, *cwd.parents):
-        if (d / "tare.json").is_file():
-            return d
-    return PACKAGE_DIR.parent
+    return case_root(Path.cwd()) or PACKAGE_DIR.parent
 
 
 def load_config(root: Path) -> dict:

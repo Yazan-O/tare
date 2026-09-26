@@ -1,7 +1,8 @@
 """python -m tare reproduce | check <side>: rerun the answer key and every declared side, weigh each one.
 
 reproduce  answer key (if cobc), every side in tare.json's `expected`, scoreboard; exit 0 when every
-           verdict equals the expected one (and, with no sides declared, when the answer key reproduces).
+           verdict equals the expected one. No side declared, or a side with neither a run nor a committed
+           fixture, is a failure: a reproduce that weighs nothing proves nothing.
 check      answer key (if cobc), one side, ledger as Markdown to $GITHUB_STEP_SUMMARY; exit 0 balanced,
            1 red, 2 when the answer key or the port run fails.
 A missing toolchain never stops a run: the committed fixture is used and labelled RECORDED. An unsound answer
@@ -99,6 +100,10 @@ def reproduce(root: Path, offline=False, record=False) -> int:
         print(f"tare.json 'expected' must map every declared side ({', '.join(declared) or 'none'}) to "
               f"'balanced' or 'red'; got {expected}", file=sys.stderr)
         return 2
+    if not declared:
+        print("tare.json declares no sides to weigh ('sides' and 'expected' are empty)", file=sys.stderr)
+        print("reproduce: FAIL (no side declared; nothing was weighed)")
+        return 1
     ok, status, sound = answer_key(root, offline)
     print(status, flush=True)
     if not sound:
@@ -107,6 +112,11 @@ def reproduce(root: Path, offline=False, record=False) -> int:
     rows = []
     for side, want in expected.items():
         run = run_side(root, side, offline)
+        if run["source"] == "recorded" and not Path(run["path"]).is_file():
+            print(f"{side}: MISSING, no committed fixture at {config.rel_to(root, run['path'])} and no run "
+                  f"({run['note']})", flush=True)
+            rows.append((side, "missing", want, "", "", "no fixture"))
+            continue
         if run["source"] == "error":
             print(f"{side}: port run FAILED ({run['note']})", flush=True)
             rows.append((side, "error", want, "", "", run["note"]))
@@ -122,17 +132,14 @@ def reproduce(root: Path, offline=False, record=False) -> int:
         rows.append((side, s["verdict"], want, f"{s['records_differ']} of {s['records_total']}", _net(s),
                      "fresh" if run["source"] == "fresh" else "(recorded)"))
     print()
-    if rows:
-        print("Scoreboard (records: records differing from the answer key; net: port minus answer key)")
-        cols = ("side", "verdict", "expected", "records", "net", "run")
-        widths = [max(len(c), *(len(str(r[i])) for r in rows)) for i, c in enumerate(cols)]
-        fmt = "  ".join(f"{{:<{w}}}" for w in widths)
-        print(fmt.format(*cols))
-        for r in rows:
-            print(fmt.format(*r))
-            print(f"    line: {sides.line(root, r[0])}")
-    else:
-        print("no sides declared in tare.json")
+    print("Scoreboard (records: records differing from the answer key; net: port minus answer key)")
+    cols = ("side", "verdict", "expected", "records", "net", "run")
+    widths = [max(len(c), *(len(str(r[i])) for r in rows)) for i, c in enumerate(cols)]
+    fmt = "  ".join(f"{{:<{w}}}" for w in widths)
+    print(fmt.format(*cols))
+    for r in rows:
+        print(fmt.format(*r))
+        print(f"    line: {sides.line(root, r[0])}")
     wrong = [r[0] for r in rows if r[1] != r[2]]
     print()
     print(status)
@@ -140,8 +147,7 @@ def reproduce(root: Path, offline=False, record=False) -> int:
         print(f"reproduce: FAIL ({'answer key' if not ok else ''}{', ' if not ok and wrong else ''}"
               f"{'unexpected verdict: ' + ', '.join(wrong) if wrong else ''})")
         return 1
-    print(f"reproduce: OK, all {len(rows)} sides got their expected verdict" if rows
-          else "reproduce: OK (answer key only)")
+    print(f"reproduce: OK, all {len(rows)} sides got their expected verdict")
     return 0
 
 

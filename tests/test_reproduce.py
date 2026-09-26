@@ -66,11 +66,30 @@ class ReproduceCommand(unittest.TestCase):
         self.edit_cfg(lambda c: c["expected"].pop("halfup"))
         self.assertEqual(self.sb.tare("reproduce", "--offline").returncode, 2)
 
-    def test_no_sides_reproduces_the_answer_key_only(self):
+    def test_no_sides_fails(self):
         self.edit_cfg(lambda c: c.update(sides={}, expected={}))
         r = self.sb.tare("reproduce", "--offline")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("reproduce: FAIL (no side declared", r.stdout)
+        self.assertNotIn("OK", r.stdout)
+
+    def test_expected_side_without_output_fails(self):
+        (self.sb.root / "fixtures" / "sides" / "halfup" / "records.json").unlink()
+        r = self.sb.tare("reproduce", "--offline")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("halfup: MISSING", r.stdout)
+        self.assertIn("reproduce: FAIL", r.stdout)
+
+    def test_repository_root_opens_on_the_hero_case(self):
+        """From the repository root (no tare.json there), reproduce weighs cases/taxe_fonciere."""
+        root = Path(__file__).resolve().parents[1]
+        env = self.sb.env()
+        r = subprocess.run([sys.executable, "-m", "tare", "reproduce", "--offline"], cwd=root, env=env,
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("reproduce: OK (answer key only)", r.stdout)
+        self.assertRegex(r.stdout, r"java-ai\s+red\s+red\s+408 of 408")
+        self.assertRegex(r.stdout, r"java-ai-fixed\s+balanced\s+balanced\s+0 of 408")
+        self.assertIn("reproduce: OK, all 2 sides got their expected verdict", r.stdout)
 
     def test_check_summary_and_exit_codes(self):
         summary = self.sb.root / "summary.md"
