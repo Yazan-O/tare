@@ -75,6 +75,7 @@ The devcontainer (`.devcontainer/`) has every toolchain.
 - `.bob/`: the mode, rules, skill, commands, hook and MCP configuration for IBM Bob.
 - `tests/`: the test suite.
 - `examples/unitsum/`: the self-test fixture.
+- `cases/taxe_fonciere/`: a case on real public data, the French property tax calculator of 2018 (see its README).
 
 ## Licence
 

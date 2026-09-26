@@ -1,0 +1,6 @@
+compiled CTXTA3B, EFITA3B8, EFITAUX2, LOADTAU, TFBATCH with cobc -m -std=default; harness: CEE3ABD, LOADER (generated from tare.json, see work/answer_key_build/harness/)
+rates: 408 records of 200 bytes from input/rates.txt
+bills: 408 records of 600 bytes from input/bills.txt
+step 1: LOADTAU DD RATES=rates, TAUDIS=taudis: return code 0
+step 2: TFBATCH DD TAUDIS=taudis, BILLS=bills, RETOURS=retours: return code 0
+records: retours 408
