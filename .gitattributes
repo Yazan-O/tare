@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.dat binary
+*.png binary
+*.ttf binary
+*.cbl text eol=lf
+*.cpy text eol=lf

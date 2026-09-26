@@ -1,0 +1,9 @@
+# build output
+/work/
+**/work/
+**/target/
+__pycache__/
+*.pyc
+# weigh state, written by every weigh
+/.tare/
+**/.tare/
