@@ -1,0 +1,6 @@
+{
+  "name": "Tare",
+  "build": { "dockerfile": "Dockerfile" },
+  "containerEnv": { "PYTHONPATH": "${containerWorkspaceFolder}" },
+  "postCreateCommand": "cd examples/unitsum && python -m tare reproduce --offline"
+}

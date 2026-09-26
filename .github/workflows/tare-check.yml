@@ -1,0 +1,89 @@
+name: tare-check
+run-name: "Tare: ${{ inputs.side }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      side:
+        description: Which declared side to weigh against the answer key
+        type: choice
+        options: [exact, halfup]
+        default: halfup
+      case:
+        description: Folder holding tare.json
+        type: string
+        default: examples/unitsum
+  workflow_call:
+    inputs:
+      side:
+        description: "a side declared in the case's tare.json"
+        type: string
+        required: true
+      case:
+        description: "folder holding tare.json (default: examples/unitsum)"
+        type: string
+        required: false
+        default: examples/unitsum
+      tare_repository:
+        description: "owner/name of the Tare repository (default: the calling repository)"
+        type: string
+        required: false
+        default: ""
+      tare_ref:
+        description: "branch, tag or commit of the Tare repository (default: its default branch)"
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: "Tare: ${{ inputs.side }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.tare_repository || github.repository }}
+          ref: ${{ inputs.tare_ref }}
+
+      - name: Install GnuCOBOL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnucobol
+          cobc --version | head -1
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow
+        run: python -m pip install -r requirements.txt
+
+      # answer key, this one side, weigh; the ledger goes to $GITHUB_STEP_SUMMARY.
+      # Exit code is the weigh's: 0 balanced, 1 red, 2 when the answer key or the port run fails.
+      - name: Weigh
+        working-directory: ${{ inputs.case }}
+        env:
+          SIDE: ${{ inputs.side }}
+        run: python -m tare check "$SIDE"
+
+      - name: Upload the ledger and scale image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tare-${{ inputs.side }}
+          path: |
+            ${{ inputs.case }}/.tare/
+            ${{ inputs.case }}/work/runs/${{ inputs.side }}/
+          include-hidden-files: true
+          if-no-files-found: warn
