@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import pathlib,runpy,sys;c=pathlib.Path.cwd().resolve();h=[d/'.bob'/'hooks'/'gate.py' for d in (c,*c.parents) if (d/'.bob'/'hooks'/'gate.py').is_file()];sys.exit(1) if not h else runpy.run_path(str(h[0]),run_name='__main__')\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
