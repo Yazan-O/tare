@@ -1,0 +1,2 @@
+# regenerable: python tools/build_map.py <ADMIN EXPRESS COG 2018 folder> --out data/map.json (dist/data/map.js is the published copy)
+/data/map.json
