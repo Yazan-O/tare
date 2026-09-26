@@ -20,7 +20,7 @@ A case is a folder holding `tare.json`, the COBOL under `mainframe/`, the answer
 | `cobol` | `sources`, `copybooks` (folders) and `flags` (default `-std=ibm`; add `-fsign=EBCDIC` when signs are EBCDIC overpunch) |
 | `files` | per file: `from` (initial content; `from_format` `fixed` or `lines`), `record_length`, `organization` (`sequential` or `indexed` with `key {offset, length}` and `alternate_keys`), `layout`, and `output: true` for the files the weigh compares |
 | `steps` | per job step: `program`, `dd` (DD name to file), optional `parm` (passed as a halfword length plus text), `rc` (accepted return codes) |
-| `layouts` | per layout: `record_length`, `key` (field names) and `fields`: `{name, offset, length, type: X, 9 or S9V9, scale, sign: trailing-overpunch, separate or none, cobol}` |
+| `layouts` | per layout: `record_length`, `key` (field names) and `fields`: `{name, offset, length, type: X, 9, S9V9 or COMP-3 (packed decimal), scale, sign: trailing-overpunch, separate or none, cobol}` |
 | `sides` | public ports to weigh: `{name: {runner, repo, commit, licence, line}}`; `runner` is `java:<dir>` or a command |
 | `expected` | the verdict `reproduce` expects for each side |
 | `accepted` | differences a person has signed (see below) |

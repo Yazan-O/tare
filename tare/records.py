@@ -4,7 +4,9 @@ A layout is {record_length, key: [field names], fields: [{name, offset, length, 
 type 'X' is text (trailing spaces dropped); '9' is unsigned digits; 'S9V9' is signed digits. scale is the
 number of implied decimal places (default 0). sign for 'S9V9': 'trailing-overpunch' (the sign in the last
 digit's zone: '{', 'A'-'I' positive and '}', 'J'-'R' negative as GnuCOBOL writes with -fsign=EBCDIC, or
-'p'-'y' negative as it writes by default), 'separate' (a trailing '+' or '-' byte) or 'none'.
+'p'-'y' negative as it writes by default), 'separate' (a trailing '+' or '-' byte) or 'none'. type 'COMP-3' is
+packed decimal (USAGE COMP-3 / PACKED-DECIMAL): two digits a byte, the sign in the last half-byte (C, A, E or F
+positive, D or B negative); a digit half-byte above 9 or a sign half-byte of 0-9 is not packed decimal.
 Numbers become decimal strings with exactly `scale` places ('-12.50', '0.00'), so money never meets a float.
 
 A records document ('records.json') is {side, command, input, files: {file: [record, ...]}, notes: [...]}.
@@ -18,12 +20,13 @@ from . import config
 POS = {c: i for i, c in enumerate("{ABCDEFGHI")}
 NEG = {c: i for i, c in enumerate("}JKLMNOPQR")}
 NEG_ASCII = {c: i for i, c in enumerate("pqrstuvwxy")}
-TYPES = ("X", "9", "S9V9")
+TYPES = ("X", "9", "S9V9", "COMP-3")
+PACKED_NEGATIVE = (0xB, 0xD)
 SIGNS = ("trailing-overpunch", "separate", "none")
 
 
 def is_numeric(field: dict) -> bool:
-    return field.get("type") in ("9", "S9V9")
+    return field.get("type") in ("9", "S9V9", "COMP-3")
 
 
 def fmt(d: Decimal, scale: int) -> str:
@@ -39,6 +42,8 @@ def decode_field(raw: str, field: dict) -> str:
     if t == "X":
         return raw.rstrip(" ")
     scale = int(field.get("scale", 0))
+    if t == "COMP-3":
+        return decode_packed(raw.encode("latin-1"), field["name"], scale)
     sign = field.get("sign", "none" if t == "9" else "trailing-overpunch")
     if t == "9" or sign == "none":
         digits, neg = raw, False
@@ -62,6 +67,15 @@ def decode_field(raw: str, field: dict) -> str:
         raise ValueError(f"{field['name']}: not a {t} value: {raw!r}")
     d = Decimal(digits).scaleb(-scale)
     return fmt(-d if neg else d, scale)
+
+
+def decode_packed(data: bytes, name: str, scale: int = 0) -> str:
+    nibbles = [n for b in data for n in (b >> 4, b & 0xF)]
+    digits, sign = nibbles[:-1], nibbles[-1]
+    if not data or any(d > 9 for d in digits) or sign < 0xA:
+        raise ValueError(f"{name}: not valid packed decimal: {data.hex(' ')}")
+    d = Decimal("".join(map(str, digits)) or "0").scaleb(-scale)
+    return fmt(-d if sign in PACKED_NEGATIVE else d, scale)
 
 
 def check_layout(name: str, layout: dict):

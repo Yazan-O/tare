@@ -35,6 +35,21 @@ class Fields(unittest.TestCase):
             records.decode_field("012500", dict(S2, sign="separate"))
         self.assertEqual(records.decode_field("01250", dict(S2, sign="none")), "12.50")
 
+    def test_packed_decimal(self):
+        def dec(hexs, f=dict(S2, type="COMP-3")):
+            return records.decode_field(bytes.fromhex(hexs).decode("latin-1"), f)
+        self.assertEqual(dec("0012345C"), "123.45")
+        self.assertEqual(dec("0012345D"), "-123.45")
+        self.assertEqual(dec("0012345F"), "123.45")  # unsigned
+        self.assertEqual(dec("123B", {"name": "p", "type": "COMP-3"}), "-123")  # B is a negative sign too
+        self.assertEqual(dec("0000000D"), "0.00")  # no negative zero
+        for bad in ("0012A45C", "00123456", "0A12345C"):  # a digit nibble A-F, a sign nibble 0-9
+            with self.assertRaises(ValueError, msg=bad):
+                dec(bad)
+        self.assertTrue(records.is_numeric({"type": "COMP-3"}))
+        records.check_layout("P", {"record_length": 4, "key": ["p"],
+                                   "fields": [{"name": "p", "offset": 0, "length": 4, "type": "COMP-3"}]})
+
     def test_bad_record_length_names_the_file(self):
         lay = {"record_length": 4, "key": ["a"], "fields": [{"name": "a", "offset": 0, "length": 4}]}
         with self.assertRaises(ValueError) as cm:

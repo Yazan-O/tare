@@ -13,12 +13,15 @@ SIGNS = {
     "separate": "signed, a trailing `+` or `-` byte after the digits",
     "none": "unsigned",
 }
+PACKED = "packed decimal: two digits a byte, the sign in the last half-byte (C positive, D negative, F unsigned)"
 
 
 def _pic(f: dict) -> str:
     t, n, s = f.get("type", "X"), f["length"], int(f.get("scale", 0))
     if t == "X":
         return f"X({n})"
+    if t == "COMP-3":
+        return f"S9({2 * n - 1 - s})" + (f"V9({s})" if s else "") + " COMP-3"
     digits = n - (1 if f.get("sign") == "separate" else 0)
     head = "S" if t == "S9V9" else ""
     return f"{head}9({digits - s})" + (f"V9({s})" if s else "")
@@ -28,9 +31,13 @@ def _table(layout: dict) -> list:
     o = ["| offset | length | field | COBOL name | picture | encoding |", "|---:|---:|---|---|---|---|"]
     for f in layout["fields"]:
         t = f.get("type", "X")
-        enc = "text, space padded" if t == "X" else (
-            SIGNS.get(f.get("sign", "trailing-overpunch" if t == "S9V9" else "none"), "")
-            + (f", {f.get('scale')} implied decimals" if f.get("scale") else ""))
+        dec = f", {f.get('scale')} implied decimals" if f.get("scale") else ""
+        if t == "X":
+            enc = "text, space padded"
+        elif t == "COMP-3":
+            enc = PACKED + dec
+        else:
+            enc = SIGNS.get(f.get("sign", "trailing-overpunch" if t == "S9V9" else "none"), "") + dec
         o.append(f"| {f['offset']} | {f['length']} | `{f['name']}` | {f.get('cobol', '')} | {_pic(f)} | {enc} |")
     return o
 

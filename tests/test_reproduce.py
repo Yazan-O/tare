@@ -168,6 +168,18 @@ class Contract(unittest.TestCase):
         self.assertIn("**`items.dat`**, 20 bytes per record.", text)
         self.assertIn("**`totals.dat`**, 40 bytes per record, key `id`.", text)
 
+    def test_contract_describes_packed_decimal(self):
+        sb = Sandbox(with_port=False)
+        try:
+            cfg = sb.cfg()
+            cfg["layouts"]["TOTAL"]["fields"][3].update(length=6, type="COMP-3")  # total_kg, 3 decimals
+            (sb.root / "tare.json").write_text(json.dumps(cfg), encoding="utf-8")
+            text = contract.render(sb.root)
+        finally:
+            sb.close()
+        self.assertIn("| 16 | 6 | `total_kg` | OUT-TOTAL-KG | S9(8)V9(3) COMP-3 | packed decimal: two digits a byte, "
+                      "the sign in the last half-byte (C positive, D negative, F unsigned), 3 implied decimals |", text)
+
     def test_committed_contract_is_current(self):
         from tests.helpers import EXAMPLE, REPO
         committed = (REPO / ".bob" / "skills" / "replay" / "PORT_CONTRACT.md").read_text(encoding="utf-8")
