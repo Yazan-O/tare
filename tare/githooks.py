@@ -8,6 +8,11 @@ git runs no pre-commit hook for cherry-pick or revert, so reference-transaction 
 update that moves a branch (refs/heads/*) forward to new commits while the port is red; fetch, stash, a
 new branch and a reset to an older commit are not affected. Git's --no-verify skips pre-commit and pre-push
 by design: that is deliberate tampering, left to CI.
+
+The port under test may be a git repository of its own inside the case (port/, a clone of a published
+port): `install-hooks --repo port` installs the same hooks there, so a commit made in that clone (cwd port/,
+or git -C port commit) is gated by the case's weigh, and the case's protected paths are still checked
+against the repository that holds the case.
 """
 import os
 import subprocess
@@ -19,7 +24,8 @@ HOOKS = ("pre-commit", "pre-merge-commit", "pre-push", "pre-rebase", "pre-applyp
 MARK = "# tare-gate: installed by python -m tare install-hooks"
 SCRIPT = """#!/bin/sh
 {mark}
-{only_prepared}cd "$(git rev-parse --show-toplevel){prefix}" || exit 1
+{only_prepared}TARE_HOOK_REPO="$(git rev-parse --show-toplevel)"; export TARE_HOOK_REPO
+cd "$TARE_HOOK_REPO{prefix}" || exit 1
 TARE_ROOT="$(pwd)"; export TARE_ROOT
 for py in python python3 py; do
   if command -v "$py" >/dev/null 2>&1; then exec "$py" {launch} gate --git-hook {name}; fi
@@ -50,10 +56,17 @@ def _launch(root: Path) -> str:
     return f'"{main}"'
 
 
-def install(root: Path, uninstall=False) -> int:
-    d = hooks_dir(root)
+def install(root: Path, uninstall=False, repo=None) -> int:
+    """Install the hooks in the git repository holding the case root, or in `repo` (a working tree at or
+    below the case root, such as port/) with the hooks going back up to the case root."""
+    repo = Path(root) if repo is None else (Path(repo) if Path(repo).is_absolute() else Path(root) / repo)
+    d = hooks_dir(repo)
     d.mkdir(parents=True, exist_ok=True)
-    prefix = _git(root, "rev-parse", "--show-prefix").rstrip("/")
+    top = Path(_git(repo, "rev-parse", "--show-toplevel")).resolve()
+    prefix = Path(os.path.relpath(Path(root).resolve(), top)).as_posix()
+    prefix = "" if prefix == "." else prefix
+    if any(c in prefix for c in '"$`\\'):
+        raise ValueError(f"cannot quote the path {prefix} in a hook script")
     done = []
     for name in HOOKS:
         p = d / name

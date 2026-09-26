@@ -17,8 +17,10 @@ import glob
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from . import config, records
@@ -227,8 +229,55 @@ def build_and_run(root: Path, src_rel: str, sandbox_rel: str, out_rel: str, side
     return path, "\n".join(x for x in log if x), f"{home} ({version})", main_class
 
 
+def run_command(root: Path, runner: str, side: str, out_rel: str, input_rel=INPUT, extra=()):
+    """Run a side's runner command from the case root with --input <input_rel> --out <out_rel> [extra], and
+    decode what it wrote into out_rel/records.json. Returns (records.json path, log). Raises PortRunError."""
+    argv = shlex.split(str(runner))
+    if not argv:
+        raise PortRunError(f"side {side}: empty runner")
+    if Path(argv[0]).name.lower().startswith("python"):
+        argv[0] = sys.executable
+    out = root / out_rel
+    out.mkdir(parents=True, exist_ok=True)
+    for stale in [out / config.RECORDS, out / PROVENANCE, *out.glob("*.dat")]:
+        stale.unlink(missing_ok=True)
+    argv += ["--input", input_rel, "--out", out_rel, *extra]
+    r = subprocess.run(argv, cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                       timeout=RUN_TIMEOUT)
+    log = (f"$ {runner} --input {input_rel} --out {out_rel}{''.join(' ' + x for x in extra)}  "
+           f"(exit {r.returncode})\n" + _tail(r.stdout + r.stderr))
+    if r.returncode:
+        raise PortRunError(log)
+    path = out / config.RECORDS
+    if not path.is_file():
+        try:
+            path = records.collect(root, config.load_config(root), out, side, runner, input_rel)
+        except ValueError as err:
+            raise PortRunError(f"{log}\nthe side's output does not decode: {err}") from None
+    return path, log
+
+
 def run(root: Path, input_rel=INPUT, out_rel=OUT):
-    """Run the port under test and write its provenance. Returns (records.json path, log text)."""
+    """Run the port under test and write its provenance. Returns (records.json path, log text).
+    With a runner declared in tare.json sides.local, that runner builds and runs it from the case root with
+    --input work/sandbox/local/input (copies of the input files), --out work/runs/local and
+    --sandbox work/sandbox/local (its build and scratch folder). Otherwise port/ is compiled with javac."""
+    runner = config.local_entry(config.load_config(root)).get("runner")
+    if runner:
+        if not any(k.endswith(".java") for k in config.hash_sources(root, SOURCES)):
+            raise PortRunError("no port sources under port/ (port/**/*.java); fetch the port under test first")
+        inp = root / input_rel
+        if not inp.is_dir():
+            raise PortRunError(f"input directory not found: {inp} (run python -m tare answer-key first)")
+        box = root / SANDBOX
+        if box.exists():
+            shutil.rmtree(box)
+        shutil.copytree(inp, box / "input")
+        path, log = run_command(root, runner, SIDE, out_rel, f"{SANDBOX}/input", ("--sandbox", SANDBOX))
+        jdk = find_jdk()
+        write_provenance(root, root / out_rel, jdk=f"{jdk[0]} ({jdk[2]})" if jdk else "", main_class=runner,
+                         input_rel=input_rel)
+        return path, log + f"\nwrote {out_rel}/{PROVENANCE}"
     path, log, jdk, main_class = build_and_run(root, "port", SANDBOX, out_rel, SIDE,
                                                "python -m tare run-port local", input_rel)
     write_provenance(root, root / out_rel, jdk=jdk, main_class=main_class, input_rel=input_rel)

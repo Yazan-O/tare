@@ -25,7 +25,7 @@ PORT_SOURCES = ("port/**/*.java", "port/MAIN")
 # the answer key and every recorded output (fixtures/), the COBOL, Tare itself and the Bob configuration.
 # tare/ and .bob/ are taken from the case root when present there, else from the Tare package and the
 # nearest .bob/ above the case root.
-PROTECTED = ("tare.json", "fixtures", "mainframe", "tare", ".bob")
+PROTECTED = ("tare.json", "fixtures", "mainframe", "sides", "tare", ".bob")
 # The case the repository opens on: from anywhere in this repository outside a case, the CLI, the MCP server
 # and the gate use it.
 DEFAULT_CASE = "cases/taxe_fonciere"
@@ -45,11 +45,16 @@ def case_root(start: Path):
 
 
 def repo_root() -> Path:
-    """TARE_ROOT, else case_root(cwd), else the package's parent."""
+    """TARE_ROOT, else case_root(cwd), else DEFAULT_CASE (a process started outside the repository, such as an
+    MCP server launched from the editor's folder), else the package's parent."""
     env = os.environ.get("TARE_ROOT")
     if env:
         return Path(env).resolve()
-    return case_root(Path.cwd()) or PACKAGE_DIR.parent
+    hit = case_root(Path.cwd())
+    if hit is not None:
+        return hit
+    default = PACKAGE_DIR.parent / DEFAULT_CASE
+    return default if (default / "tare.json").is_file() else PACKAGE_DIR.parent
 
 
 def load_config(root: Path) -> dict:
@@ -158,6 +163,14 @@ def layout_for(cfg: dict, file: str) -> dict:
 def sides(cfg: dict) -> dict:
     """Public ports declared in tare.json: {name: {runner, repo, commit, licence, line}}."""
     return {k: v for k, v in (cfg.get("sides") or {}).items() if SIDE_RE.match(k) and k != PORT_SIDE}
+
+
+def local_entry(cfg: dict) -> dict:
+    """How the port under test is built and run, when the case declares it: tare.json sides.local
+    {runner, repo, commit, licence, line, source, causes}. Without a runner, port/ is compiled with javac and
+    run from port/MAIN. Its sources (PORT_SOURCES) and its answer key stay pinned in code whatever it says."""
+    e = (cfg.get("sides") or {}).get(PORT_SIDE)
+    return e if isinstance(e, dict) else {}
 
 
 def resolve_port_path(root: Path, port: str) -> Path:

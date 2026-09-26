@@ -19,8 +19,8 @@ customModes:
     groups:
       - read
       - - edit
-        - fileRegex: "^(port|docs)/.*"
-          description: The port and its notes only; the original side is read-only
+        - fileRegex: "^((cases/[^/]+/)?port|docs)/.*"
+          description: The port under test (port/, or cases/<case>/port/) and its notes only; the original side is read-only
       - execute
       - mcp
       - skill

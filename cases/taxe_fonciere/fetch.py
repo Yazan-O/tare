@@ -8,6 +8,11 @@ MIT repository. Only the built-property ("bati") calculator of 2018 is used:
   cache/repos/omnipede/   omnipede/taxe-fonciere @ JAVA_COMMIT; the port is its taxe-fonciere-java/ folder
 
   python fetch.py          the two repositories (the demo input under input/ is committed)
+  python fetch.py --local  also port/: the port under test, a clone of the Java port's repository at
+                           JAVA_COMMIT on branch LOCAL_BRANCH, a git repository of its own (git-ignored here,
+                           so its CeCILL code and the repair committed in it never enter this repository),
+                           with Tare's git hooks installed in it
+  python fetch.py --reset-local   port/ back at JAVA_COMMIT, discarding its changes and commits
   python fetch.py --full   also REI 2018 from data.gouv.fr, converted to CSV, and the national case under
                            full/ (35,389 communes): cd full && python -m tare reproduce
 """
@@ -26,6 +31,8 @@ COBOL_REPO = "https://github.com/etalab/taxe-fonciere.git"
 COBOL_COMMIT = "6bd40b2d78eaeb3f2635fbd7a9eb1f952d0739ba"
 JAVA_REPO = "https://github.com/omnipede/taxe-fonciere.git"
 JAVA_COMMIT = "5124d1c07942e362922663e52dd8f2e641fb0e47"
+LOCAL = HERE / "port"
+LOCAL_BRANCH = "tare-local"
 # The built-property path of 2018: the router, the calculator, the rate reader, and their copybooks.
 COBOL_FILES = ["CTXTA3B.cob", "EFITA3B8.cob", "EFITAUX2.cob",
                "XCOMBAT.cpy", "XRETB.cpy", "XBASEB.cpy", "XCOTB.cpy",
@@ -75,6 +82,29 @@ def fetch_java():
     clone(JAVA_REPO, CACHE / "repos" / "omnipede", JAVA_COMMIT, checkout=True)
 
 
+def fetch_local(reset=False):
+    """port/: a clone of the Java port's repository (from cache/repos/omnipede, origin set to JAVA_REPO) on
+    branch LOCAL_BRANCH at JAVA_COMMIT, with the gate's git hooks. An existing clone is left as it is unless
+    reset is set."""
+    if (LOCAL / ".git").is_dir() and not reset:
+        head = git("rev-parse", "--short", "HEAD", cwd=LOCAL).decode().strip()
+        print(f"  port/ exists (HEAD {head}); left as it is (--reset-local puts it back at {JAVA_COMMIT[:7]})")
+    else:
+        if not (LOCAL / ".git").is_dir():
+            if LOCAL.exists() and any(LOCAL.iterdir()):
+                sys.exit(f"{LOCAL} exists and is not a git clone; move it away first")
+            print("clone the Java port into port/")
+            git("clone", "--quiet", "--no-checkout", str(CACHE / "repos" / "omnipede"), str(LOCAL))
+            git("remote", "set-url", "origin", JAVA_REPO, cwd=LOCAL)
+        git("-c", "advice.detachedHead=false", "checkout", "--quiet", "--force", "-B", LOCAL_BRANCH, JAVA_COMMIT,
+            cwd=LOCAL)
+        git("clean", "--quiet", "-fdx", cwd=LOCAL)
+        print(f"  port/ @ {JAVA_COMMIT} on branch {LOCAL_BRANCH} (the published port, CeCILL-2.1; git-ignored)")
+    sys.path.insert(0, str(HERE.parents[1]))
+    from tare import githooks
+    githooks.install(HERE, repo=LOCAL)
+
+
 def fetch_rei():
     if not REI_ZIP.is_file():
         REI_ZIP.parent.mkdir(parents=True, exist_ok=True)
@@ -119,6 +149,10 @@ def write_full_case():
     cob["copybooks"] = ["../" + s for s in cob["copybooks"]]
     for side in cfg["sides"].values():
         side["runner"] = side["runner"].replace("sides/", "../sides/", 1)
+        if side.get("source"):
+            side["source"] = "../" + side["source"]
+        for cause in side.get("causes") or []:
+            cause["cobol"] = ["../" + c for c in cause["cobol"]]
     (full / "tare.json").write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8",
                                     newline="\n")
     print("  full/tare.json and full/input/: cd full && python -m tare reproduce")
@@ -127,9 +161,14 @@ def write_full_case():
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--full", action="store_true", help="also fetch REI 2018 and write the national case, full/")
+    ap.add_argument("--local", action="store_true", help="also make port/ a clone of the Java port (the port "
+                                                         "under test), with the gate's git hooks")
+    ap.add_argument("--reset-local", action="store_true", help="put port/ back at the published commit")
     a = ap.parse_args()
     fetch_cobol()
     fetch_java()
+    if a.local or a.reset_local:
+        fetch_local(reset=a.reset_local)
     if a.full:
         fetch_rei()
         write_full_case()

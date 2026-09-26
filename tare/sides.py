@@ -10,11 +10,9 @@ fixtures/sides/<side>/records.json (recorded output, labelled RECORDED wherever 
 import json
 import shlex
 import shutil
-import subprocess
-import sys
 from pathlib import Path
 
-from . import config, localport, records
+from . import config, localport
 
 
 def declared(root: Path) -> dict:
@@ -87,30 +85,11 @@ def run(root: Path, side: str):
     if d is not None:
         path, log, _, _ = localport.build_and_run(root, d, f"work/sandbox/{side}", out_rel, side, command)
         return path, log
-    argv = shlex.split(str(e.get("runner")))
-    if Path(argv[0]).name.lower().startswith("python"):
-        argv[0] = sys.executable
-    out = root / out_rel
-    out.mkdir(parents=True, exist_ok=True)
-    for stale in [out / config.RECORDS, *out.glob("*.dat")]:
-        stale.unlink(missing_ok=True)
-    argv += ["--input", config.INPUT, "--out", out_rel]
-    r = subprocess.run(argv, cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                       timeout=localport.RUN_TIMEOUT)
-    log = f"$ {e['runner']} --input {config.INPUT} --out {out_rel}  (exit {r.returncode})\n" \
-          + localport._tail(r.stdout + r.stderr)
-    if r.returncode:
-        raise localport.PortRunError(log)
-    path = out / config.RECORDS
-    if not path.is_file():
-        try:
-            path = records.collect(root, config.load_config(root), out, side, e["runner"], config.INPUT)
-        except ValueError as err:
-            raise localport.PortRunError(f"{log}\nthe side's output does not decode: {err}") from None
-    return path, log
+    return localport.run_command(root, e["runner"], side, out_rel)
 
 
 def line(root: Path, side: str) -> str:
     """'file:line  source text' of the side's deciding statement, from tare.json."""
-    e = declared(root).get(side) or {}
+    cfg = config.load_config(root)
+    e = config.local_entry(cfg) if side == config.PORT_SIDE else config.sides(cfg).get(side) or {}
     return str(e.get("line") or "(no line declared in tare.json)")

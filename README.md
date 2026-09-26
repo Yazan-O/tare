@@ -4,12 +4,25 @@ Tare replays a COBOL batch program and a port of it on the same input, and weigh
 
 To tare a scale is to zero it, so that it measures only what matters.
 
+## First run
+
+From the repository root, which opens on the property-tax case (`cases/taxe_fonciere/`):
+
+```
+python -m tare reproduce --offline     # seconds, Python only: java-ai red on 408 of 408 Ain communes, java-ai-fixed balanced
+python -m tare fetch --local           # the DGFiP COBOL and the published Java port; port/ becomes the port under test
+python -m tare weigh --port local      # builds and runs port/ (JDK >= 17, Maven): red, 408 of 408
+python -m tare explain --key 010001 --field tctdu --port local
+```
+
+`reproduce` fails (exit 1) when no side is declared or an expected side has neither a run nor a committed fixture: a reproduce that weighs nothing proves nothing.
+
 ## How it works
 
 1. **Answer key.** `python -m tare answer-key` compiles the original COBOL with GnuCOBOL and runs its job steps as `tare.json` describes them: DD names mapped to files, an optional PARM, indexed files loaded and unloaded with their keys. It writes `fixtures/answer_key/`: the input files, each output file byte for byte, `records.json` (the outputs decoded with their layouts) and each step's job log. The z/OS pieces are harness programs generated from `tare.json`, each headed `HARNESS:`: a loader/unloader standing in for IDCAMS REPRO, one PARM driver per step with a PARM, and a CEE3ABD abend stub. Before it writes `records.json`, it checks that the COBOL's own output is sound: every packed-decimal (COMP-3) field holds valid digit and sign half-bytes, every zoned numeric field decodes, and every declared `echo` reads back. An unsound output stops with `answer key unsound: field X in record N of <file> is not valid packed decimal (bytes ...)` and writes no `records.json`; `reproduce` and `check` run the same check on the committed answer key and stop before weighing any side.
-2. **Port.** `python -m tare run-port local` compiles the Java under `port/`, runs it in a sandbox on the answer key's input, and decodes the fixed-width files it writes with the same layouts.
+2. **Port.** `python -m tare run-port local` compiles the Java under `port/`, runs it in a sandbox on the answer key's input, and decodes the fixed-width files it writes with the same layouts. A case may declare how its port is built instead (`sides.local.runner` in `tare.json`, such as a Maven build); the runner gets a sandbox of its own (`--sandbox work/sandbox/local`, with copies of the input files) and the run is recorded the same way.
 3. **Weigh.** `python -m tare weigh --port local` aligns the two sides by key per output file and compares every declared field, numbers in decimal. The ledger counts records, differing records and fields, missing and extra records, and for each numeric field how many values are higher, how many lower, and the net. The verdict is balanced or red, and a drawing of a balance scale shows it.
-4. **Explain.** `python -m tare explain --key <key> --field <field>` shows both values, the COBOL statements that write the field or a group holding it (with file:line, read from the source), the field's PIC and USAGE (copybooks expanded with their `COPY ... REPLACING`: pseudo-text, literals, words, `LEADING` and `TRAILING`), and, for a numeric difference, the exact arithmetic of the `COMPUTE` when its operands are in the record: truncated and rounded half-up, beside what each side wrote, with IBM's documented rule for `ROUNDED`.
+4. **Explain.** `python -m tare explain --key <key> --field <field>` shows both values, the COBOL statements that write the field or a group holding it (with file:line, read from the source), the field's PIC and USAGE (copybooks expanded with their `COPY ... REPLACING`: pseudo-text, literals, words, `LEADING` and `TRAILING`), and, for a numeric difference, the exact arithmetic of the `COMPUTE` when its operands are in the record: truncated and rounded half-up, beside what each side wrote. IBM's documented rule for `ROUNDED` is cited only when one of the two reproduces the port's value. When a side's `causes` in `tare.json` name the field, explain also quotes, from the sources as they are now, the COBOL lines that produce the original's value and the port's own lines where the cause sits.
 
 ## A case
 
@@ -21,7 +34,7 @@ A case is a folder holding `tare.json`, the COBOL under `mainframe/`, the answer
 | `files` | per file: `from` (initial content; `from_format` `fixed` or `lines`), `record_length`, `organization` (`sequential` or `indexed` with `key {offset, length}` and `alternate_keys`), `layout`, `output: true` for the files the weigh compares, and on an output file optional round-trip checks `echo: [{field, input, input_field, match}]` (the output field reads back equal to an input file's field, in the input record with the same number, `match: record`, or in any input record, `match: any`) |
 | `steps` | per job step: `program`, `dd` (DD name to file), optional `parm` (passed as a halfword length plus text), `rc` (accepted return codes) |
 | `layouts` | per layout: `record_length`, `key` (field names) and `fields`: `{name, offset, length, type: X, 9, S9V9 or COMP-3 (packed decimal), scale, sign: trailing-overpunch, separate or none, cobol}` |
-| `sides` | public ports to weigh: `{name: {runner, repo, commit, licence, line}}`; `runner` is `java:<dir>` or a command |
+| `sides` | public ports to weigh: `{name: {runner, repo, commit, licence, line, source, causes}}`; `runner` is `java:<dir>` or a command; `source` is the folder holding the port's code, and `causes` lists known defects `{what, port: file:first-last, cobol: [file:first-last], fields}` for explain. `sides.local`, when present, says how the port under test is built and run |
 | `expected` | the verdict `reproduce` expects for each side |
 | `accepted` | differences a person has signed (see below) |
 
@@ -47,7 +60,8 @@ The gate stops an agent's honest mistakes and casual workarounds inside Bob. The
 
 - **A weigh describes the current port.** `weigh local` reruns the port when a source, `port/MAIN`, an input file or the output changed since the port's last run (recorded in `work/runs/local/provenance.json`). The gate checks the weigh record against the current sources.
 - **The port does not see the answer key.** It runs in `work/sandbox/local/`, which holds only copies of the input files and the compiled classes. A port that opens an absolute path or climbs out with `../` is deliberate tampering, out of scope like the items below.
-- **The policy is fixed in code.** The side under test is always `local`, its sources are `port/**/*.java` and `port/MAIN`, and its answer key is `fixtures/answer_key/records.json`, whatever `tare.json` says. A commit is blocked while `tare.json`, `fixtures/`, `mainframe/`, `tare/` or `.bob/` differ from git HEAD in the working tree or the index, including when the case sits in a subfolder of the repository.
+- **The policy is fixed in code.** The side under test is always `local`, its sources are `port/**/*.java` and `port/MAIN`, and its answer key is `fixtures/answer_key/records.json`, whatever `tare.json` says. A commit is blocked while `tare.json`, `fixtures/`, `mainframe/`, `sides/`, `tare/` or `.bob/` differ from git HEAD in the working tree or the index, including when the case sits in a subfolder of the repository.
+- **The port may be a repository of its own.** When `port/` is a git clone (a published port, kept under its own licence and ignored by this repository), `python -m tare install-hooks --repo port` installs the hooks in the clone: a commit made there (`git -C cases/<case>/port commit`, or from inside `port/`) is refused while the case's weigh is red or stale, or while the case's protected paths differ from HEAD in the repository that holds the case. The Bob hook sends a `git -C <dir>` command to the case holding `<dir>`.
 - **An accepted difference is signed, exact and sealed.** An entry is `{file, key, fields, expect, reason, accepted_by, date, seal}` and covers only the listed fields of the one record it names. `expect: {field: value}` pins exact values; `expect: "answer_key"` pins the answer key's values. The answer key's own values always pass; any other value is red, and the ledger row shows the value expected. Missing and extra records are never accepted. A person adds an entry with `python -m tare accept --key <key> --by "<name>" --reason "<text>"` and removes it with `python -m tare accept --revoke --key <key>`; the `tare.json` that command writes can be committed, and an entry edited by hand no longer matches its seal and covers nothing.
 - **Every git route is covered.** `python -m tare install-hooks` installs git `pre-commit`, `pre-merge-commit`, `pre-push`, `pre-rebase`, `pre-applypatch` and `reference-transaction` hooks that apply the same rule to any git client: aliases, scripts, subprocesses, other editors. The last one vetoes any branch advance, which covers `cherry-pick` and `revert` (git runs no pre-commit hook for them); a vetoed one leaves its changes staged and HEAD where it was. Git commands are matched in any letter case.
 - **Bob can always finish.** Completion while red is allowed with a notice, so Bob is never trapped in a task it cannot finish; the red port still cannot be committed.
@@ -75,7 +89,7 @@ The devcontainer (`.devcontainer/`) has every toolchain.
 - `.bob/`: the mode, rules, skill, commands, hook and MCP configuration for IBM Bob.
 - `tests/`: the test suite.
 - `examples/unitsum/`: the self-test fixture.
-- `cases/taxe_fonciere/`: a case on real public data, the French property tax calculator of 2018 (see its README).
+- `cases/taxe_fonciere/`: the case the repository opens on, real public data run through the French property tax calculator of 2018 (see its README).
 
 ## Licence
 

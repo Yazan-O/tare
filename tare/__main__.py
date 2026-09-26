@@ -1,5 +1,5 @@
-"""python -m tare answer-key | run-port | weigh | explain | gate | install-hooks | accept | contract | sheet |
-reproduce | check | reset"""
+"""python -m tare answer-key | run-port | weigh | explain | gate | install-hooks | fetch | accept | contract |
+sheet | reproduce | check | reset"""
 import sys
 from pathlib import Path
 
@@ -43,6 +43,15 @@ def main(argv=None) -> int:
                                              "pre-applypatch and reference-transaction hooks that apply the "
                                              "gate to any git client")
     h.add_argument("--uninstall", action="store_true")
+    h.add_argument("--repo", help="install into this git working tree inside the case (e.g. port/, a clone of "
+                                  "the port under test) instead of the repository holding the case")
+    f = sub.add_parser("fetch", help="run the case's fetch.py (third-party sources at pinned commits); "
+                                     "--local makes port/ a clone of the published port, with the gate's hooks")
+    f.add_argument("--local", action="store_true", help="clone the published port into port/ (the port under "
+                                                        "test), a git repository of its own")
+    f.add_argument("--reset-local", action="store_true", help="put port/ back at the published commit, "
+                                                              "discarding its uncommitted changes and commits")
+    f.add_argument("--full", action="store_true", help="also the national data (see the case README)")
     ac = sub.add_parser("accept", help="a person signs an accepted difference for one record in tare.json")
     ac.add_argument("--file", help="output file name (default: the only one)")
     ac.add_argument("--key", help="record key")
@@ -102,7 +111,16 @@ def main(argv=None) -> int:
             return gate.main(git_hook=a.git_hook)
         if a.cmd == "install-hooks":
             from . import githooks
-            return githooks.install(root, uninstall=a.uninstall)
+            return githooks.install(root, uninstall=a.uninstall, repo=a.repo)
+        if a.cmd == "fetch":
+            import subprocess
+            script = root / "fetch.py"
+            if not script.is_file():
+                print(f"tare: this case ({root}) has no fetch.py", file=sys.stderr)
+                return 2
+            flags = [x for x, on in (("--local", a.local), ("--reset-local", a.reset_local), ("--full", a.full))
+                     if on]
+            return subprocess.run([sys.executable, str(script), *flags], cwd=root).returncode
         if a.cmd == "accept":
             from . import accept
             if a.revoke:

@@ -15,7 +15,7 @@ that opens the answer key by absolute path, `git commit --no-verify`, TARE_MAINT
 
 Policy fixed in code, not read from tare.json: the side under test is 'local', its sources are
 port/**/*.java and port/MAIN, and its answer key is fixtures/answer_key/records.json. tare.json, fixtures/,
-mainframe/, tare/ and .bob/ must equal git HEAD (working tree and index); tare/ and .bob/ are the case
+mainframe/, sides/, tare/ and .bob/ must equal git HEAD (working tree and index); tare/ and .bob/ are the case
 root's, else the Tare package and the nearest .bob/ above the case root. The one allowed difference is
 tare.json's 'accepted' list when `python -m tare accept` wrote it (sealed in .tare/accept_seal.json).
 
@@ -197,8 +197,19 @@ def _log(root: Path, raw: str, payload):
 
 
 def _git(root: Path, *args):
+    """git -C root ... . Inside a git hook, git exports GIT_INDEX_FILE for the repository making the commit;
+    when that is another repository (a commit in the nested clone port/), it is dropped so that the query
+    reads root's own repository."""
     import subprocess
-    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, timeout=30)
+    env = dict(os.environ)
+    idx = env.get("GIT_INDEX_FILE")
+    if idx:
+        r = subprocess.run(["git", "-C", str(root), "rev-parse", "--absolute-git-dir"], capture_output=True,
+                           timeout=30, env={k: v for k, v in env.items() if k != "GIT_INDEX_FILE"})
+        own = Path(r.stdout.decode("utf-8", "replace").strip()).resolve() if r.returncode == 0 else None
+        if own is None or Path(idx).resolve().parent != own:
+            env.pop("GIT_INDEX_FILE")
+    return subprocess.run(["git", "-C", str(root), *args], capture_output=True, timeout=30, env=env)
 
 
 def _git_top(root: Path):
@@ -279,8 +290,8 @@ def verdict(root: Path, git_hook=False):
         if changed:
             verb = "differs" if len(changed) == 1 else "differ"
             where = f"{verb} from git HEAD" if how == "git" else "changed after the last weigh"
-            return False, (f"{BLOCKED}{_few(changed)} {where}. tare.json, fixtures/, mainframe/, tare/ and .bob/ "
-                           "are read-only in a Tare session: restore them (git restore <path>), or ask the "
+            return False, (f"{BLOCKED}{_few(changed)} {where}. tare.json, fixtures/, mainframe/, sides/, tare/ and "
+                           ".bob/ are read-only in a Tare session: restore them (git restore <path>), or ask the "
                            "repo's owner. An accepted difference is added only with python -m tare accept.")
     now = config.hash_sources(root, config.PORT_SOURCES)
     if not now:
@@ -324,9 +335,29 @@ def advances_a_branch(root: Path, lines) -> bool:
         old, new = parts[0], parts[1]
         if old == new or not all(re.fullmatch(r"[0-9a-f]{40,64}", x) and x.strip("0") for x in (old, new)):
             continue
-        if _git(root, "merge-base", "--is-ancestor", old, new).returncode == 0:
+        if _git(Path(os.environ.get("TARE_HOOK_REPO") or root), "merge-base", "--is-ancestor", old,
+                new).returncode == 0:
             return True
     return False
+
+
+GIT_C = re.compile(r"\bgit(?:\.exe)?\b[^;&|\n]*?\s-C\s+(\"[^\"]+\"|'[^']+'|\S+)", re.I)
+
+
+def case_for(payload, cwd=None):
+    """The case a command acts on: the case holding the folder of a `git -C <dir>` in it (such as the nested
+    clone cases/<case>/port), else None."""
+    from . import config
+    cwd = Path(cwd or Path.cwd())
+    for c in command_strings(payload):
+        for m in GIT_C.finditer(c):
+            d = Path(m.group(1).strip("\"'"))
+            d = d if d.is_absolute() else cwd / d
+            if d.is_dir():
+                hit = config.case_root(d)
+                if hit is not None:
+                    return hit
+    return None
 
 
 def main(stdin=None, git_hook=None) -> int:
@@ -369,6 +400,8 @@ def main(stdin=None, git_hook=None) -> int:
             return 0
         if not gated(payload):
             return 0
+        if not os.environ.get("TARE_ROOT"):
+            root = case_for(payload) or root
         ok, msg = verdict(root)
         if ok:
             return 0

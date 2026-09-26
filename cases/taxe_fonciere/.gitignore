@@ -1,2 +1,4 @@
 cache/
 full/
+# the port under test: a clone of the published Java port with its own git history (fetch.py --local)
+port/

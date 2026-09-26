@@ -604,14 +604,86 @@
       "repo": "github.com/omnipede/taxe-fonciere, folder taxe-fonciere-java (one commit by hgseo-cubox-ai, co-authored by Qwen-Coder)",
       "commit": "5124d1c07942e362922663e52dd8f2e641fb0e47",
       "licence": "CeCILL-2.1 (fetched at run time into cache/, never committed)",
-      "line": "taxe-fonciere-java/src/main/java/fr/dgfip/taxefonciere/calculator/BuiltPropertyCalculator.java:24-27 the 3% fee tier is given the 8% tier's rates (8% and 4.4%) and the 8% tier the 3% tier's (3% and 1%); model/output/RetourB.java:95-102 the total before fees leaves out the household-waste tax"
+      "line": "taxe-fonciere-java/src/main/java/fr/dgfip/taxefonciere/calculator/BuiltPropertyCalculator.java:24-27 the 3% fee tier is given the 8% tier's rates (8% and 4.4%) and the 8% tier the 3% tier's (3% and 1%); taxe-fonciere-java/src/main/java/fr/dgfip/taxefonciere/model/output/RetourB.java:95-102 the total before fees leaves out the household-waste tax",
+      "source": "cache/repos/omnipede",
+      "causes": [
+        {
+          "what": "the 3% fee tier is given the 8% tier's rates (8% and 4.4%) and the 8% tier the 3% tier's (3% and 1%)",
+          "port": "taxe-fonciere-java/src/main/java/fr/dgfip/taxefonciere/calculator/BuiltPropertyCalculator.java:24-27",
+          "cobol": [
+            "cache/cobol/EFITA3B8.cob:99-104",
+            "cache/cobol/EFITA3B8.cob:414-416",
+            "cache/cobol/EFITA3B8.cob:419-421"
+          ],
+          "fields": [
+            "mfa300",
+            "mfn300",
+            "mfa800",
+            "mfn800",
+            "tctfra",
+            "tctdu"
+          ]
+        },
+        {
+          "what": "the total before fees (TCTHFR) leaves out the household-waste tax, which EFITA3B8 adds through W-TOTCOT8",
+          "port": "taxe-fonciere-java/src/main/java/fr/dgfip/taxefonciere/model/output/RetourB.java:95-102",
+          "cobol": [
+            "cache/cobol/EFITA3B8.cob:407-408",
+            "cache/cobol/EFITA3B8.cob:479-480"
+          ],
+          "fields": [
+            "tcthfr",
+            "tctdu"
+          ]
+        }
+      ]
     },
     "java-ai-fixed": {
       "runner": "python sides/java_port.py --variant fixed",
       "repo": "the java-ai port with two fixes applied by sides/java_port.py in a build copy under cache/",
       "commit": "5124d1c07942e362922663e52dd8f2e641fb0e47",
       "licence": "CeCILL-2.1 (patched copy under cache/, never committed)",
-      "line": "BuiltPropertyCalculator.java:24-27 fee rates 3%/1% for the 3% tier and 8%/4.4% for the 8% tier, as EFITA3B8 moves them; RetourB.java:103 the total before fees adds the household-waste tax"
+      "line": "BuiltPropertyCalculator.java:24-27 fee rates 3%/1% for the 3% tier and 8%/4.4% for the 8% tier, as EFITA3B8 moves them; RetourB.java:103 the total before fees adds the household-waste tax",
+      "source": "cache/build/fixed"
+    },
+    "local": {
+      "runner": "python sides/java_port.py --variant local",
+      "repo": "the port under test: port/, a git-ignored clone of github.com/omnipede/taxe-fonciere (python fetch.py --local) with its own git history; the Java port is its taxe-fonciere-java/ folder",
+      "commit": "5124d1c07942e362922663e52dd8f2e641fb0e47",
+      "licence": "CeCILL-2.1 (a clone of its own under port/, never committed to this repository)",
+      "line": "taxe-fonciere-java/src/main/java/fr/dgfip/taxefonciere/calculator/BuiltPropertyCalculator.java:24-27 the 3% fee tier is given the 8% tier's rates (8% and 4.4%) and the 8% tier the 3% tier's (3% and 1%); taxe-fonciere-java/src/main/java/fr/dgfip/taxefonciere/model/output/RetourB.java:95-102 the total before fees leaves out the household-waste tax",
+      "source": "port",
+      "causes": [
+        {
+          "what": "the 3% fee tier is given the 8% tier's rates (8% and 4.4%) and the 8% tier the 3% tier's (3% and 1%)",
+          "port": "taxe-fonciere-java/src/main/java/fr/dgfip/taxefonciere/calculator/BuiltPropertyCalculator.java:24-27",
+          "cobol": [
+            "cache/cobol/EFITA3B8.cob:99-104",
+            "cache/cobol/EFITA3B8.cob:414-416",
+            "cache/cobol/EFITA3B8.cob:419-421"
+          ],
+          "fields": [
+            "mfa300",
+            "mfn300",
+            "mfa800",
+            "mfn800",
+            "tctfra",
+            "tctdu"
+          ]
+        },
+        {
+          "what": "the total before fees (TCTHFR) leaves out the household-waste tax, which EFITA3B8 adds through W-TOTCOT8",
+          "port": "taxe-fonciere-java/src/main/java/fr/dgfip/taxefonciere/model/output/RetourB.java:95-102",
+          "cobol": [
+            "cache/cobol/EFITA3B8.cob:407-408",
+            "cache/cobol/EFITA3B8.cob:479-480"
+          ],
+          "fields": [
+            "tcthfr",
+            "tctdu"
+          ]
+        }
+      ]
     }
   },
   "expected": {
