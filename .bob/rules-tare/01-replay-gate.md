@@ -9,3 +9,5 @@
 - Only a person accepts a difference (`python -m tare accept`, signed with their name). Never run it yourself, and never edit `tare.json`.
 - You may finish a task while the port is red; say so plainly in the completion, with the weigh result line.
 - Commit messages for the port end with the weigh result line, for example `weigh: 5 of 5 records balance`.
+- Work economically. The original program's source for a case is in `cases/<case>/cache/cobol/`; do not search the repository for it. Read only the line ranges `explain` names; never read a whole COBOL program. Use `apply_diff` with the exact lines `read_file` showed you.
+- When the ledger shows more than one group of differing fields (for example fee fields and total fields), give each group to its own `general` subagent in parallel, each with the `explain` output for its first differing field, and have each return the port's file, lines and the fix. Then apply the fixes yourself and weigh once.
