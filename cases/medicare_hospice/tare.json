@@ -1,0 +1,480 @@
+{
+  "about": "US Medicare hospice pricing, the FY2021.0 Hospice Pricer of the Centers for Medicare & Medicaid Services (HOSDR210 -> HOSPR210, public domain, cms.gov). Input: 5,000 synthetic claims constructed from public CMS tables (see README.md and build_input.py); each claim bills 0651 routine home care, and 15% of them also bill 0652 continuous home care.",
+  "program": "HOSDR210 -> HOSPR210 (FY2021.0)",
+  "cobol": {
+    "sources": [
+      "cache/cobol/HOSDR210.cbl",
+      "cache/cobol/HOSPR210.cbl",
+      "harness/HOSRUN.cbl"
+    ],
+    "copybooks": [
+      "cache/cobol"
+    ],
+    "flags": [
+      "-std=ibm"
+    ]
+  },
+  "files": {
+    "cbsafile": {
+      "from": "input/cbsafile.txt",
+      "from_format": "lines",
+      "record_length": 80
+    },
+    "provfile": {
+      "from": "input/provfile.txt",
+      "from_format": "lines",
+      "record_length": 240
+    },
+    "billfile": {
+      "from": "input/billfile.txt",
+      "from_format": "lines",
+      "record_length": 315,
+      "layout": "BILL315"
+    },
+    "ratefile": {
+      "record_length": 315,
+      "layout": "RATE315",
+      "output": true,
+      "echo": [
+        {
+          "field": "claim",
+          "input": "billfile",
+          "input_field": "claim"
+        }
+      ]
+    }
+  },
+  "steps": [
+    {
+      "program": "HOSRUN",
+      "dd": {
+        "CBSAFILE": "cbsafile",
+        "PROVFILE": "provfile",
+        "BILLFILE": "billfile",
+        "RATEFILE": "ratefile"
+      }
+    }
+  ],
+  "layouts": {
+    "BILL315": {
+      "record_length": 315,
+      "key": [
+        "claim"
+      ],
+      "fields": [
+        {
+          "name": "npi",
+          "offset": 0,
+          "length": 10,
+          "type": "X",
+          "cobol": "BILL-NPI"
+        },
+        {
+          "name": "prov_no",
+          "offset": 10,
+          "length": 6,
+          "type": "X",
+          "cobol": "BILL-PROV-NO"
+        },
+        {
+          "name": "from_date",
+          "offset": 16,
+          "length": 8,
+          "type": "9",
+          "cobol": "BILL-FROM-DATE (BILL-FROM-CC, -YY, -MM, -DD)"
+        },
+        {
+          "name": "admission_date",
+          "offset": 24,
+          "length": 8,
+          "type": "9",
+          "cobol": "BILL-ADMISSION-DATE (BILL-ADM-CC, -YY, -MM, -DD)"
+        },
+        {
+          "name": "prov_cbsa",
+          "offset": 42,
+          "length": 5,
+          "type": "X",
+          "cobol": "BILL-PROV-CBSA (BILL-PROV-MSA-LUGAR)"
+        },
+        {
+          "name": "bene_cbsa",
+          "offset": 47,
+          "length": 5,
+          "type": "X",
+          "cobol": "BILL-BENE-CBSA (BILL-BENE-MSA-LUGAR)"
+        },
+        {
+          "name": "na_addon_day1_units",
+          "offset": 64,
+          "length": 2,
+          "type": "9",
+          "cobol": "BILL-NA-ADD-ON-DAY1-UNITS"
+        },
+        {
+          "name": "eol_addon_day1_units",
+          "offset": 68,
+          "length": 2,
+          "type": "9",
+          "cobol": "BILL-EOL-ADD-ON-DAY1-UNITS"
+        },
+        {
+          "name": "eol_addon_day2_units",
+          "offset": 70,
+          "length": 2,
+          "type": "9",
+          "cobol": "BILL-EOL-ADD-ON-DAY2-UNITS"
+        },
+        {
+          "name": "eol_addon_day3_units",
+          "offset": 72,
+          "length": 2,
+          "type": "9",
+          "cobol": "BILL-EOL-ADD-ON-DAY3-UNITS"
+        },
+        {
+          "name": "eol_addon_day4_units",
+          "offset": 74,
+          "length": 2,
+          "type": "9",
+          "cobol": "BILL-EOL-ADD-ON-DAY4-UNITS"
+        },
+        {
+          "name": "eol_addon_day5_units",
+          "offset": 76,
+          "length": 2,
+          "type": "9",
+          "cobol": "BILL-EOL-ADD-ON-DAY5-UNITS"
+        },
+        {
+          "name": "eol_addon_day6_units",
+          "offset": 78,
+          "length": 2,
+          "type": "9",
+          "cobol": "BILL-EOL-ADD-ON-DAY6-UNITS"
+        },
+        {
+          "name": "eol_addon_day7_units",
+          "offset": 80,
+          "length": 2,
+          "type": "9",
+          "cobol": "BILL-EOL-ADD-ON-DAY7-UNITS"
+        },
+        {
+          "name": "qip",
+          "offset": 92,
+          "length": 1,
+          "type": "X",
+          "cobol": "BILL-QIP-IND"
+        },
+        {
+          "name": "rev1",
+          "offset": 93,
+          "length": 4,
+          "type": "X",
+          "cobol": "BILL-REV1"
+        },
+        {
+          "name": "dos1",
+          "offset": 102,
+          "length": 8,
+          "type": "X",
+          "cobol": "BILL-LINE-ITEM-DOS1 (BILL-LIDOS1-CC, -YY, -MM, -DD), PIC 99, blank when the slot is unused"
+        },
+        {
+          "name": "units1",
+          "offset": 110,
+          "length": 7,
+          "type": "X",
+          "cobol": "BILL-UNITS1, PIC 9(07), blank when the slot is unused"
+        },
+        {
+          "name": "rev2",
+          "offset": 125,
+          "length": 4,
+          "type": "X",
+          "cobol": "BILL-REV2"
+        },
+        {
+          "name": "dos2",
+          "offset": 134,
+          "length": 8,
+          "type": "X",
+          "cobol": "BILL-LINE-ITEM-DOS2 (BILL-LIDOS2-CC, -YY, -MM, -DD), PIC 99, blank when the slot is unused"
+        },
+        {
+          "name": "units2",
+          "offset": 142,
+          "length": 7,
+          "type": "X",
+          "cobol": "BILL-UNITS2, PIC 9(07), blank when the slot is unused"
+        },
+        {
+          "name": "rev3",
+          "offset": 157,
+          "length": 4,
+          "type": "X",
+          "cobol": "BILL-REV3"
+        },
+        {
+          "name": "dos3",
+          "offset": 166,
+          "length": 8,
+          "type": "X",
+          "cobol": "BILL-LINE-ITEM-DOS3 (BILL-LIDOS3-CC, -YY, -MM, -DD), PIC 99, blank when the slot is unused"
+        },
+        {
+          "name": "units3",
+          "offset": 174,
+          "length": 7,
+          "type": "X",
+          "cobol": "BILL-UNITS3, PIC 9(07), blank when the slot is unused"
+        },
+        {
+          "name": "rev4",
+          "offset": 189,
+          "length": 4,
+          "type": "X",
+          "cobol": "BILL-REV4"
+        },
+        {
+          "name": "dos4",
+          "offset": 198,
+          "length": 8,
+          "type": "X",
+          "cobol": "BILL-LINE-ITEM-DOS4 (BILL-LIDOS4-CC, -YY, -MM, -DD), PIC 99, blank when the slot is unused"
+        },
+        {
+          "name": "units4",
+          "offset": 206,
+          "length": 7,
+          "type": "X",
+          "cobol": "BILL-UNITS4, PIC 9(07), blank when the slot is unused"
+        },
+        {
+          "name": "claim",
+          "offset": 307,
+          "length": 8,
+          "type": "X",
+          "cobol": "trailing FILLER of 01 BILL-315-DATA: the claim id, passed through untouched (HOSRUN writes the record back whole)"
+        }
+      ]
+    },
+    "RATE315": {
+      "record_length": 315,
+      "key": [
+        "claim"
+      ],
+      "fields": [
+        {
+          "name": "claim",
+          "offset": 307,
+          "length": 8,
+          "type": "X",
+          "cobol": "trailing FILLER of 01 BILL-315-DATA (HOSRUN's claim id)"
+        },
+        {
+          "name": "total",
+          "offset": 293,
+          "length": 8,
+          "type": "9",
+          "scale": 2,
+          "cobol": "BILL-PAY-AMT-TOTAL"
+        },
+        {
+          "name": "rtc",
+          "offset": 301,
+          "length": 2,
+          "type": "X",
+          "cobol": "BILL-RTC"
+        },
+        {
+          "name": "high",
+          "offset": 303,
+          "length": 2,
+          "type": "9",
+          "cobol": "BILL-HIGH-RHC-DAYS"
+        },
+        {
+          "name": "low",
+          "offset": 305,
+          "length": 2,
+          "type": "9",
+          "cobol": "BILL-LOW-RHC-DAYS"
+        },
+        {
+          "name": "pay_rhc",
+          "offset": 117,
+          "length": 8,
+          "type": "9",
+          "scale": 2,
+          "cobol": "BILL-PAY-AMT1"
+        },
+        {
+          "name": "pay_chc",
+          "offset": 149,
+          "length": 8,
+          "type": "9",
+          "scale": 2,
+          "cobol": "BILL-PAY-AMT2"
+        },
+        {
+          "name": "pay_irc",
+          "offset": 181,
+          "length": 8,
+          "type": "9",
+          "scale": 2,
+          "cobol": "BILL-PAY-AMT3"
+        },
+        {
+          "name": "pay_gic",
+          "offset": 213,
+          "length": 8,
+          "type": "9",
+          "scale": 2,
+          "cobol": "BILL-PAY-AMT4"
+        },
+        {
+          "name": "eol_1",
+          "offset": 237,
+          "length": 8,
+          "type": "9",
+          "scale": 2,
+          "cobol": "BILL-EOL-ADD-ON-DAY1-PAY"
+        },
+        {
+          "name": "eol_2",
+          "offset": 245,
+          "length": 8,
+          "type": "9",
+          "scale": 2,
+          "cobol": "BILL-EOL-ADD-ON-DAY2-PAY"
+        },
+        {
+          "name": "eol_3",
+          "offset": 253,
+          "length": 8,
+          "type": "9",
+          "scale": 2,
+          "cobol": "BILL-EOL-ADD-ON-DAY3-PAY"
+        },
+        {
+          "name": "eol_4",
+          "offset": 261,
+          "length": 8,
+          "type": "9",
+          "scale": 2,
+          "cobol": "BILL-EOL-ADD-ON-DAY4-PAY"
+        },
+        {
+          "name": "eol_5",
+          "offset": 269,
+          "length": 8,
+          "type": "9",
+          "scale": 2,
+          "cobol": "BILL-EOL-ADD-ON-DAY5-PAY"
+        },
+        {
+          "name": "eol_6",
+          "offset": 277,
+          "length": 8,
+          "type": "9",
+          "scale": 2,
+          "cobol": "BILL-EOL-ADD-ON-DAY6-PAY"
+        },
+        {
+          "name": "eol_7",
+          "offset": 285,
+          "length": 8,
+          "type": "9",
+          "scale": 2,
+          "cobol": "BILL-EOL-ADD-ON-DAY7-PAY"
+        }
+      ]
+    }
+  },
+  "sides": {
+    "cms-java": {
+      "runner": "python sides/port_runner.py --which cms",
+      "repo": "CMS's own Java migration, Hospice Pricer 2.5.1, Implementation-Version 2.5.1.2025-11-13T21:19:01Z (executable JAR from cms.gov/pricersourcecodesoftware, sha256 8463ea46eca855c9c3a2c8eaac2293688f1bc1919c6ce3af3d21b129871c72fe as pinned in fetch.py; a FOIA release with no licence file, fetched at run time into cache/, never committed)",
+      "licence": "none stated: a CMS FOIA transparency release, fetched at run time and never committed",
+      "line": "CalculateFinalPayments.java:36-43 totalPayment is the sum of the unrounded per-level rates, rounded once at the end (setScale(2, HALF_UP)), while lines 64-77 round each level's own payment; the COBOL adds the rounded per-level rates (HOSPR210.cbl:5857-5862)",
+      "source": "cache/cms_java/src",
+      "causes": [
+        {
+          "what": "the claim total is the sum of the unrounded per-level rates rounded once, where the COBOL adds the per-level amounts it has already rounded into WRK-PAY-RATE1-4 (PIC 9(06)V9(02))",
+          "port": "gov/cms/fiss/pricers/hospice/core/rules/CalculateFinalPayments.java:36-43",
+          "cobol": [
+            "cache/cobol/HOSPR210.cbl:5857-5862",
+            "cache/cobol/HOSPR210.cbl:5867-5870",
+            "cache/cobol/HOSPR210.cbl:206-208"
+          ],
+          "fields": [
+            "total"
+          ]
+        }
+      ]
+    },
+    "java-ai": {
+      "runner": "python sides/port_runner.py --which ai --variant published",
+      "repo": "github.com/rcaran/hospice-cms-pricer-java, the published AI-assisted port (no licence file, GitHub API reports licenseInfo null; it ships .cursor/, .windsurf/ and .specs/ agent task files, so 'AI-assisted' is circumstantial, not declared)",
+      "commit": "655847671859b67a188c5dae6a86c45a74bfa046",
+      "licence": "none: fetched at run time at the pinned commit into cache/, never committed",
+      "line": "FullPricerStrategy.java:79-86 a continuous-home-care day of less than 32 units is counted as a routine home care day (highDaysCount++ / lowDaysCount++, and the flags that choose the return code), which HOSPR210.cbl's 2021-V210-CHC-0652 paragraph never does; PaymentCalculator.java:78-84 the CHC hourly rate is rounded half-up at 10 places, where the COBOL truncates",
+      "source": "cache/repos/rcaran",
+      "causes": [
+        {
+          "what": "a continuous-home-care day of less than 32 units is counted as a high-rate routine home care day; the CHC paragraph pays that day at an RHC rate but never touches the RHC day counters, which only the RHC paragraphs write",
+          "port": "hospice-pricer-api/src/main/java/com/cms/hospice/pricing/FullPricerStrategy.java:79-80",
+          "cobol": [
+            "cache/cobol/HOSPR210.cbl:6403-6422",
+            "cache/cobol/HOSPR210.cbl:6036",
+            "cache/cobol/HOSPR210.cbl:5997"
+          ],
+          "fields": [
+            "high",
+            "low"
+          ]
+        },
+        {
+          "what": "the same short CHC day sets the flags that pick the return code, so a claim billing only continuous home care comes back 73 or 75 where the COBOL returns 00; the COBOL assigns 73/74/75/77 from the RHC day indicators alone",
+          "port": "hospice-pricer-api/src/main/java/com/cms/hospice/pricing/FullPricerStrategy.java:79-86",
+          "cobol": [
+            "cache/cobol/HOSPR210.cbl:6274-6312",
+            "cache/cobol/HOSPR210.cbl:6055",
+            "cache/cobol/HOSPR210.cbl:6018"
+          ],
+          "fields": [
+            "rtc"
+          ]
+        },
+        {
+          "what": "the continuous-home-care hourly rate is rounded half-up at ten decimal places; the COBOL's arithmetic has no ROUNDED phrase on the intermediate divisions, so they truncate",
+          "port": "hospice-pricer-api/src/main/java/com/cms/hospice/pricing/PaymentCalculator.java:78-84",
+          "cobol": [
+            "cache/cobol/HOSPR210.cbl:6430-6434",
+            "cache/cobol/HOSPR210.cbl:207"
+          ],
+          "fields": [
+            "pay_chc",
+            "total"
+          ]
+        }
+      ]
+    },
+    "java-ai-fixed": {
+      "runner": "python sides/port_runner.py --which ai --variant fixed",
+      "repo": "the same port at the same commit, with sides/ai-port-fixes.patch applied in a build copy under cache/build/ (the patch is committed here; the port's own code never is)",
+      "commit": "655847671859b67a188c5dae6a86c45a74bfa046",
+      "licence": "none: the patched copy lives under cache/, never committed",
+      "line": "FullPricerStrategy.java:75-87 a short continuous-home-care day pays at the RHC rate and counts as nothing; PaymentCalculator.java:78-84 the hourly rate is truncated (RoundingMode.DOWN), as the COBOL's arithmetic requires",
+      "source": "cache/build/fixed"
+    }
+  },
+  "expected": {
+    "cms-java": "red",
+    "java-ai": "red",
+    "java-ai-fixed": "balanced"
+  },
+  "accepted": []
+}
