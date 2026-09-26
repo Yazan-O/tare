@@ -1,0 +1,622 @@
+{
+  "about": "French property tax (taxe fonciere), 2018 built-property calculator of the DGFiP, published by Etalab: CTXTA3B routes the bill to EFITA3B8, which reads the rates through EFITAUX2. Input: one bill per commune of the Ain departement, built from REI 2018 (see README.md).",
+  "program": "EFITA3B8",
+  "cobol": {
+    "sources": [
+      "cache/cobol/CTXTA3B.cob",
+      "cache/cobol/EFITA3B8.cob",
+      "cache/cobol/EFITAUX2.cob",
+      "harness/LOADTAU.cbl",
+      "harness/TFBATCH.cbl"
+    ],
+    "copybooks": [
+      "cache/cobol"
+    ],
+    "flags": [
+      "-std=default"
+    ]
+  },
+  "files": {
+    "rates": {
+      "from": "input/rates.txt",
+      "from_format": "lines",
+      "record_length": 200
+    },
+    "bills": {
+      "from": "input/bills.txt",
+      "from_format": "lines",
+      "record_length": 600,
+      "layout": "COMBAT"
+    },
+    "taudis": {
+      "organization": "indexed",
+      "record_length": 3000,
+      "key": {
+        "offset": 0,
+        "length": 12
+      }
+    },
+    "retours": {
+      "record_length": 600,
+      "layout": "RETOURB",
+      "output": true
+    }
+  },
+  "steps": [
+    {
+      "program": "LOADTAU",
+      "dd": {
+        "RATES": "rates",
+        "TAUDIS": "taudis"
+      }
+    },
+    {
+      "program": "TFBATCH",
+      "dd": {
+        "TAUDIS": "taudis",
+        "BILLS": "bills",
+        "RETOURS": "retours"
+      }
+    }
+  ],
+  "layouts": {
+    "COMBAT": {
+      "record_length": 600,
+      "key": [
+        "commune"
+      ],
+      "fields": [
+        {
+          "name": "ccobnb",
+          "offset": 0,
+          "length": 1,
+          "type": "X",
+          "cobol": "COMBAT-CCOBNB"
+        },
+        {
+          "name": "dan",
+          "offset": 1,
+          "length": 4,
+          "type": "X",
+          "cobol": "COMBAT-DAN"
+        },
+        {
+          "name": "commune",
+          "offset": 5,
+          "length": 6,
+          "type": "X",
+          "cobol": "COMBAT-AC3DIR, COMBAT-CCOCOM"
+        },
+        {
+          "name": "dsrpar",
+          "offset": 11,
+          "length": 1,
+          "type": "X",
+          "cobol": "COMBAT-DSRPAR"
+        },
+        {
+          "name": "cgroup",
+          "offset": 12,
+          "length": 1,
+          "type": "X",
+          "cobol": "COMBAT-CGROUP"
+        },
+        {
+          "name": "nnupro",
+          "offset": 13,
+          "length": 5,
+          "type": "9",
+          "cobol": "COMBAT-NNUPRO"
+        },
+        {
+          "name": "mbacom",
+          "offset": 26,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBACOM"
+        },
+        {
+          "name": "mbadep",
+          "offset": 36,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBADEP"
+        },
+        {
+          "name": "mbareg",
+          "offset": 46,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBAREG"
+        },
+        {
+          "name": "mbasyn",
+          "offset": 56,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBASYN"
+        },
+        {
+          "name": "mbacu",
+          "offset": 66,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBACU"
+        },
+        {
+          "name": "mbatse",
+          "offset": 76,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBATSE"
+        },
+        {
+          "name": "mbbt13_1",
+          "offset": 86,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBBT13(1)"
+        },
+        {
+          "name": "mbbt13_2",
+          "offset": 96,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBBT13(2)"
+        },
+        {
+          "name": "gtauom1",
+          "offset": 126,
+          "length": 2,
+          "type": "X",
+          "cobol": "COMBAT-GTAUOM(1)"
+        },
+        {
+          "name": "mbaom1",
+          "offset": 128,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBAOM(1)"
+        },
+        {
+          "name": "gtauom2",
+          "offset": 138,
+          "length": 2,
+          "type": "X",
+          "cobol": "COMBAT-GTAUOM(2)"
+        },
+        {
+          "name": "mbaom2",
+          "offset": 140,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBAOM(2)"
+        },
+        {
+          "name": "gtauom3",
+          "offset": 150,
+          "length": 2,
+          "type": "X",
+          "cobol": "COMBAT-GTAUOM(3)"
+        },
+        {
+          "name": "mbaom3",
+          "offset": 152,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBAOM(3)"
+        },
+        {
+          "name": "gtauom4",
+          "offset": 162,
+          "length": 2,
+          "type": "X",
+          "cobol": "COMBAT-GTAUOM(4)"
+        },
+        {
+          "name": "mbaom4",
+          "offset": 164,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBAOM(4)"
+        },
+        {
+          "name": "gtauom5",
+          "offset": 174,
+          "length": 2,
+          "type": "X",
+          "cobol": "COMBAT-GTAUOM(5)"
+        },
+        {
+          "name": "mbaom5",
+          "offset": 176,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBAOM(5)"
+        },
+        {
+          "name": "gtauom6",
+          "offset": 186,
+          "length": 2,
+          "type": "X",
+          "cobol": "COMBAT-GTAUOM(6)"
+        },
+        {
+          "name": "mbaom6",
+          "offset": 188,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBAOM(6)"
+        },
+        {
+          "name": "mvltim",
+          "offset": 318,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MVLTIM"
+        },
+        {
+          "name": "mbage3",
+          "offset": 344,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBAGE3"
+        },
+        {
+          "name": "mbata3",
+          "offset": 354,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "COMBAT-MBATA3"
+        },
+        {
+          "name": "ccoifp",
+          "offset": 364,
+          "length": 3,
+          "type": "X",
+          "cobol": "COMBAT-CCOIFP"
+        },
+        {
+          "name": "ccpper",
+          "offset": 367,
+          "length": 3,
+          "type": "X",
+          "cobol": "COMBAT-CCPPER"
+        }
+      ]
+    },
+    "RETOURB": {
+      "record_length": 600,
+      "key": [
+        "commune"
+      ],
+      "fields": [
+        {
+          "name": "commune",
+          "offset": 4,
+          "length": 6,
+          "type": "X",
+          "cobol": "RETOURB-AC3DIR, RETOURB-CCOCOM"
+        },
+        {
+          "name": "mctcom",
+          "offset": 18,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCTCOM"
+        },
+        {
+          "name": "mctdep",
+          "offset": 28,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCTDEP"
+        },
+        {
+          "name": "mctreg",
+          "offset": 38,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCTREG"
+        },
+        {
+          "name": "mctsyn",
+          "offset": 48,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCTSYN"
+        },
+        {
+          "name": "mctcu",
+          "offset": 58,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCTCU"
+        },
+        {
+          "name": "mcttse",
+          "offset": 68,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCTTSE"
+        },
+        {
+          "name": "mcbt13_1",
+          "offset": 78,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCBT13(1)"
+        },
+        {
+          "name": "mcbt13_2",
+          "offset": 88,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCBT13(2)"
+        },
+        {
+          "name": "mcbtsa",
+          "offset": 98,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCBTSA"
+        },
+        {
+          "name": "gtauom1",
+          "offset": 148,
+          "length": 2,
+          "type": "X",
+          "cobol": "RETOURB-GTAUOM(1)"
+        },
+        {
+          "name": "mctom1",
+          "offset": 150,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCTOM(1)"
+        },
+        {
+          "name": "gtauom2",
+          "offset": 160,
+          "length": 2,
+          "type": "X",
+          "cobol": "RETOURB-GTAUOM(2)"
+        },
+        {
+          "name": "mctom2",
+          "offset": 162,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCTOM(2)"
+        },
+        {
+          "name": "gtauom3",
+          "offset": 172,
+          "length": 2,
+          "type": "X",
+          "cobol": "RETOURB-GTAUOM(3)"
+        },
+        {
+          "name": "mctom3",
+          "offset": 174,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCTOM(3)"
+        },
+        {
+          "name": "gtauom4",
+          "offset": 184,
+          "length": 2,
+          "type": "X",
+          "cobol": "RETOURB-GTAUOM(4)"
+        },
+        {
+          "name": "mctom4",
+          "offset": 186,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCTOM(4)"
+        },
+        {
+          "name": "gtauom5",
+          "offset": 196,
+          "length": 2,
+          "type": "X",
+          "cobol": "RETOURB-GTAUOM(5)"
+        },
+        {
+          "name": "mctom5",
+          "offset": 198,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCTOM(5)"
+        },
+        {
+          "name": "gtauom6",
+          "offset": 208,
+          "length": 2,
+          "type": "X",
+          "cobol": "RETOURB-GTAUOM(6)"
+        },
+        {
+          "name": "mctom6",
+          "offset": 210,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCTOM(6)"
+        },
+        {
+          "name": "mfa300",
+          "offset": 220,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MFA300"
+        },
+        {
+          "name": "mfn300",
+          "offset": 230,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MFN300"
+        },
+        {
+          "name": "mfa800",
+          "offset": 240,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MFA800"
+        },
+        {
+          "name": "mfn800",
+          "offset": 250,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MFN800"
+        },
+        {
+          "name": "tcthfr",
+          "offset": 260,
+          "length": 12,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-TCTHFR"
+        },
+        {
+          "name": "tctfra",
+          "offset": 272,
+          "length": 12,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-TCTFRA"
+        },
+        {
+          "name": "tctdu",
+          "offset": 284,
+          "length": 12,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-TCTDU"
+        },
+        {
+          "name": "mfa900",
+          "offset": 296,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MFA900"
+        },
+        {
+          "name": "mfn900",
+          "offset": 306,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MFN900"
+        },
+        {
+          "name": "tctom",
+          "offset": 316,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-TCTOM"
+        },
+        {
+          "name": "mvltim",
+          "offset": 326,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MVLTIM"
+        },
+        {
+          "name": "mcoge3",
+          "offset": 336,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCOGE3"
+        },
+        {
+          "name": "mcota3",
+          "offset": 346,
+          "length": 10,
+          "type": "S9V9",
+          "sign": "trailing-overpunch",
+          "cobol": "RETOURB-MCOTA3"
+        },
+        {
+          "name": "cr",
+          "offset": 596,
+          "length": 2,
+          "type": "9",
+          "cobol": "CRM (TFBATCH writes it into XRETB's trailing FILLER)"
+        },
+        {
+          "name": "rc",
+          "offset": 598,
+          "length": 2,
+          "type": "9",
+          "cobol": "RCM (TFBATCH writes it into XRETB's trailing FILLER)"
+        }
+      ]
+    }
+  },
+  "sides": {
+    "java-ai": {
+      "runner": "python sides/java_port.py --variant ai",
+      "repo": "github.com/omnipede/taxe-fonciere, folder taxe-fonciere-java (one commit by hgseo-cubox-ai, co-authored by Qwen-Coder)",
+      "commit": "5124d1c07942e362922663e52dd8f2e641fb0e47",
+      "licence": "CeCILL-2.1 (fetched at run time into cache/, never committed)",
+      "line": "taxe-fonciere-java/src/main/java/fr/dgfip/taxefonciere/calculator/BuiltPropertyCalculator.java:24-27 the 3% fee tier is given the 8% tier's rates (8% and 4.4%) and the 8% tier the 3% tier's (3% and 1%); model/output/RetourB.java:95-102 the total before fees leaves out the household-waste tax"
+    },
+    "java-ai-fixed": {
+      "runner": "python sides/java_port.py --variant fixed",
+      "repo": "the java-ai port with two fixes applied by sides/java_port.py in a build copy under cache/",
+      "commit": "5124d1c07942e362922663e52dd8f2e641fb0e47",
+      "licence": "CeCILL-2.1 (patched copy under cache/, never committed)",
+      "line": "BuiltPropertyCalculator.java:24-27 fee rates 3%/1% for the 3% tier and 8%/4.4% for the 8% tier, as EFITA3B8 moves them; RetourB.java:103 the total before fees adds the household-waste tax"
+    }
+  },
+  "expected": {
+    "java-ai": "red",
+    "java-ai-fixed": "balanced"
+  },
+  "accepted": []
+}
