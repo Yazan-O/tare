@@ -18,7 +18,8 @@
       "record_length": 40,
       "key": {"offset": 0, "length": 6},
       "layout": "TOTAL",
-      "output": true
+      "output": true,
+      "echo": [{"field": "id", "input": "items", "input_field": "id", "match": "any"}]
     }
   },
   "steps": [

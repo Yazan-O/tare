@@ -42,6 +42,20 @@ class ReproduceCommand(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("answer key: cobc, cobcrun not found", r.stdout)
 
+    def test_unsound_answer_key_stops_before_any_weigh(self):
+        dat = self.sb.root / "fixtures" / "answer_key" / "totals.dat"
+        data = bytearray(dat.read_bytes())
+        data[40 + 6] = ord("X")  # record 2, the first digit of count PIC 9(03)
+        dat.write_bytes(bytes(data))
+        r = self.sb.tare("reproduce", "--offline")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("answer key unsound: field count in record 2 of totals is not a valid 9 number", r.stdout)
+        self.assertNotIn("Scoreboard", r.stdout)
+        self.assertFalse((self.sb.root / ".tare" / "weigh_exact.json").exists())
+        c = self.sb.tare("check", "exact", "--offline")
+        self.assertEqual(c.returncode, 2, c.stdout + c.stderr)
+        self.assertIn("answer key unsound", c.stdout)
+
     def test_unexpected_verdict_fails(self):
         self.edit_cfg(lambda c: c["expected"].update(halfup="balanced"))
         r = self.sb.tare("reproduce", "--offline")

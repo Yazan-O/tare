@@ -4,7 +4,8 @@ reproduce  answer key (if cobc), every side in tare.json's `expected`, scoreboar
            verdict equals the expected one (and, with no sides declared, when the answer key reproduces).
 check      answer key (if cobc), one side, ledger as Markdown to $GITHUB_STEP_SUMMARY; exit 0 balanced,
            1 red, 2 when the answer key or the port run fails.
-A missing toolchain never stops a run: the committed fixture is used and labelled RECORDED.
+A missing toolchain never stops a run: the committed fixture is used and labelled RECORDED. An unsound answer
+key (committed or fresh; see answerkey.soundness) stops both before any side is weighed.
 --record (reproduce) copies each fresh side run to its committed fixture, fixtures/sides/<side>/records.json.
 """
 import shutil
@@ -17,26 +18,33 @@ FRESH = "work/answer_key"
 
 
 def answer_key(root: Path, offline=False) -> tuple:
-    """(ok, one-line status). Rebuilds the answer key into work/answer_key when cobc is present and compares
-    it with the committed one."""
+    """(ok, one-line status, sound). Checks the committed answer key's soundness, then rebuilds the answer key
+    into work/answer_key when cobc is present and compares it with the committed one. sound is False when the
+    committed or the fresh answer key is unsound: nothing may be weighed against it."""
     committed = root / config.ANSWER_DIR
+    if (committed / config.RECORDS).is_file():
+        problems = answerkey.soundness(config.load_config(root), committed)
+        if problems:
+            return False, f"{answerkey.unsound_text(problems)} (committed fixture {config.ANSWER_DIR})", False
     if offline:
-        return True, f"answer key: RECORDED, committed fixture {config.ANSWER_KEY} (--offline)"
+        return True, f"answer key: RECORDED, committed fixture {config.ANSWER_KEY} (--offline)", True
     missing = answerkey.tools_missing()
     if missing:
         return True, (f"answer key: {', '.join(missing)} not found; using the committed fixture "
-                      f"{config.ANSWER_KEY} (RECORDED, produced by: python -m tare answer-key)")
+                      f"{config.ANSWER_KEY} (RECORDED, produced by: python -m tare answer-key)"), True
     print("$ python -m tare answer-key --out work/answer_key", flush=True)
     try:
         answerkey.build(root, FRESH, say=lambda s: print(f"  {s}", flush=True))
+    except answerkey.UnsoundAnswerKey as e:
+        return False, f"{e} (fresh GnuCOBOL run)", False
     except (answerkey.AnswerKeyError, ValueError, OSError) as e:
         print(str(e), file=sys.stderr)
-        return False, f"answer key: python -m tare answer-key failed ({type(e).__name__})"
+        return False, f"answer key: python -m tare answer-key failed ({type(e).__name__})", True
     diffs = answerkey.compare(committed, root / FRESH, config.load_config(root))
     if diffs:
-        return False, "answer key: fresh GnuCOBOL run DIFFERS from the committed fixture: " + "; ".join(diffs)
+        return False, "answer key: fresh GnuCOBOL run DIFFERS from the committed fixture: " + "; ".join(diffs), True
     return True, ("answer key: fresh GnuCOBOL run equals the committed fixture (records.json; input and output "
-                  "files byte for byte)")
+                  "files byte for byte)"), True
 
 
 def run_side(root: Path, side: str, offline=False) -> dict:
@@ -91,8 +99,11 @@ def reproduce(root: Path, offline=False, record=False) -> int:
         print(f"tare.json 'expected' must map every declared side ({', '.join(declared) or 'none'}) to "
               f"'balanced' or 'red'; got {expected}", file=sys.stderr)
         return 2
-    ok, status = answer_key(root, offline)
+    ok, status, sound = answer_key(root, offline)
     print(status, flush=True)
+    if not sound:
+        print("reproduce: FAIL (the answer key is unsound; no side was weighed against it)")
+        return 1
     rows = []
     for side, want in expected.items():
         run = run_side(root, side, offline)
@@ -135,9 +146,9 @@ def reproduce(root: Path, offline=False, record=False) -> int:
 
 
 def check(root: Path, side: str, summary_path=None, offline=False) -> int:
-    ok, status = answer_key(root, offline)
+    ok, status, sound = answer_key(root, offline)
     print(status, flush=True)
-    run = run_side(root, side, offline)
+    run = run_side(root, side, offline) if sound else {"source": "skipped", "note": "answer key unsound"}
     md = [f"## Tare: {side}", ""]
     if not ok or run["source"] == "error":
         why = status if not ok else f"{side}: port run FAILED ({run['note']})"

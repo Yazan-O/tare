@@ -29,6 +29,62 @@ PARM = "IT'S A LONGER PARM, OVER THIRTY CHARACTERS: 12345"
 ROWS = ["C003AA000030", "A001BB000010", "B002AA000020", "D004CC000040"]
 
 
+PACKOUT = """\
+      * TEST FIXTURE: writes packed-decimal amounts; with CORRUPT a
+      * third record carries bytes that are not packed decimal.
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. PACKOUT.
+       ENVIRONMENT DIVISION.
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+           SELECT OUT-FILE ASSIGN TO OUTFILE
+                  ORGANIZATION IS SEQUENTIAL.
+       DATA DIVISION.
+       FILE SECTION.
+       FD  OUT-FILE.
+       01  OUT-REC.
+           05 OUT-ID                  PIC X(04).
+           05 OUT-AMT                 PIC S9(05)V99 COMP-3.
+           05 OUT-QTY                 PIC 9(03) COMP-3.
+       01  OUT-RAW.
+           05 FILLER                  PIC X(04).
+           05 OUT-AMT-BYTES           PIC X(04).
+           05 FILLER                  PIC X(02).
+       PROCEDURE DIVISION.
+           OPEN OUTPUT OUT-FILE
+           MOVE 'A001' TO OUT-ID
+           COMPUTE OUT-AMT = -123.45
+           MOVE 7 TO OUT-QTY
+           WRITE OUT-REC
+           MOVE 'B002' TO OUT-ID
+           MOVE 99999.99 TO OUT-AMT
+           MOVE 999 TO OUT-QTY
+           WRITE OUT-REC
+{corrupt}           CLOSE OUT-FILE
+           GOBACK.
+"""
+CORRUPT = """\
+           MOVE 'C003' TO OUT-ID
+           MOVE X'1A2B3C4D' TO OUT-AMT-BYTES
+           WRITE OUT-REC
+"""
+
+
+def packed_case(root: Path, corrupt: bool) -> dict:
+    (root / "cbl").mkdir(exist_ok=True)
+    (root / "cbl" / "PACKOUT.cbl").write_text(PACKOUT.format(corrupt=CORRUPT if corrupt else ""), encoding="utf-8")
+    lay = {"record_length": 10, "key": ["id"], "fields": [
+        {"name": "id", "offset": 0, "length": 4, "type": "X"},
+        {"name": "amt", "offset": 4, "length": 4, "type": "COMP-3", "scale": 2},
+        {"name": "qty", "offset": 8, "length": 2, "type": "COMP-3"}]}
+    cfg = {"cobol": {"sources": ["cbl/PACKOUT.cbl"], "copybooks": []},
+           "files": {"out": {"record_length": 10, "layout": "PACK", "output": True}},
+           "steps": [{"program": "PACKOUT", "dd": {"OUTFILE": "out"}}],
+           "layouts": {"PACK": lay}}
+    (root / "tare.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    return cfg
+
+
 def mini_case(root: Path):
     (root / "cbl").mkdir()
     (root / "cbl" / "NOOP.cbl").write_text(NOOP, encoding="utf-8")
@@ -49,6 +105,86 @@ def mini_case(root: Path):
            "layouts": {"ROW": lay}}
     (root / "tare.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
     return cfg
+
+
+# 10-byte output records: id X(4), amt S9(5)V99 COMP-3 (4 bytes), qty 9(2) zoned; 4-byte input records: id
+PACK = {"record_length": 10, "key": ["id"], "fields": [
+    {"name": "id", "offset": 0, "length": 4, "type": "X"},
+    {"name": "amt", "offset": 4, "length": 4, "type": "COMP-3", "scale": 2},
+    {"name": "qty", "offset": 8, "length": 2, "type": "9"}]}
+GOOD = b"A001" + bytes.fromhex("0012345D") + b"07" + b"B002" + bytes.fromhex("9999999C") + b"12"
+
+
+def packed_key(root: Path, out: bytes, echo=None, ins=b"A001B002") -> dict:
+    """An answer key folder holding out.dat and input/ins.dat, and the tare.json describing them."""
+    (root / "input").mkdir(exist_ok=True)
+    (root / "input" / "ins.dat").write_bytes(ins)
+    (root / "out.dat").write_bytes(out)
+    return {"cobol": {"sources": ["P.cbl"]}, "steps": [{"program": "P", "dd": {"I": "ins", "O": "out"}}],
+            "files": {"ins": {"from": "ins.txt", "record_length": 4, "layout": "IN"},
+                      "out": dict({"record_length": 10, "layout": "PACK", "output": True},
+                                  **({"echo": echo} if echo else {}))},
+            "layouts": {"PACK": PACK, "IN": {"record_length": 4, "key": ["id"], "fields": [
+                {"name": "id", "offset": 0, "length": 4, "type": "X"}]}}}
+
+
+class Soundness(unittest.TestCase):
+    def setUp(self):
+        self.td = tempfile.TemporaryDirectory()
+        self.root = Path(self.td.name)
+
+    def tearDown(self):
+        self.td.cleanup()
+
+    def test_sound_key_passes(self):
+        cfg = packed_key(self.root, GOOD)
+        self.assertEqual(answerkey.soundness(cfg, self.root), [])
+        answerkey.check_sound(cfg, self.root)
+
+    def test_invalid_packed_digit_fails(self):
+        cfg = packed_key(self.root, GOOD[:14] + bytes.fromhex("99A9999C") + b"12")
+        self.assertEqual(answerkey.soundness(cfg, self.root),
+                         ["field amt in record 2 of out is not valid packed decimal (bytes 99 a9 99 9c)"])
+        with self.assertRaises(answerkey.UnsoundAnswerKey) as cm:
+            answerkey.check_sound(cfg, self.root)
+        self.assertTrue(str(cm.exception).startswith(
+            "answer key unsound: field amt in record 2 of out is not valid packed decimal"), str(cm.exception))
+
+    def test_invalid_packed_sign_fails(self):
+        cfg = packed_key(self.root, b"A001" + bytes.fromhex("00123456") + GOOD[8:])
+        self.assertEqual(answerkey.soundness(cfg, self.root),
+                         ["field amt in record 1 of out is not valid packed decimal (bytes 00 12 34 56)"])
+
+    def test_zoned_field_that_does_not_decode_fails(self):
+        cfg = packed_key(self.root, GOOD[:8] + b"0X" + GOOD[10:])
+        self.assertEqual(answerkey.soundness(cfg, self.root),
+                         ["field qty in record 1 of out is not a valid 9 number ('0X')"])
+
+    def test_echo_by_record(self):
+        echo = [{"field": "id", "input": "ins", "input_field": "id"}]
+        self.assertEqual(answerkey.soundness(packed_key(self.root, GOOD, echo), self.root), [])
+        cfg = packed_key(self.root, GOOD, echo, ins=b"A001C003")
+        self.assertEqual(answerkey.soundness(cfg, self.root),
+                         ["field id in record 2 of out reads 'B002', not ins.id of input record 2 ('C003')"])
+
+    def test_echo_any_record(self):
+        echo = [{"field": "id", "input": "ins", "match": "any"}]
+        self.assertEqual(answerkey.soundness(packed_key(self.root, GOOD, echo, ins=b"B002A001"), self.root), [])
+        cfg = packed_key(self.root, GOOD, echo, ins=b"B002C003")
+        self.assertEqual(answerkey.soundness(cfg, self.root),
+                         ["field id in record 1 of out reads 'A001', which is no input record's ins.id"])
+
+    def test_echo_declarations_are_validated(self):
+        for bad in ({"field": "id", "input": "nosuch"}, {"field": "nosuch", "input": "ins"},
+                    {"field": "id", "input": "ins", "input_field": "nosuch"},
+                    {"field": "id", "input": "ins", "match": "sometimes"}):
+            with self.assertRaises(answerkey.AnswerKeyError, msg=str(bad)):
+                answerkey.validate(packed_key(self.root, GOOD, [bad]))
+
+    def test_the_committed_example_is_sound(self):
+        cfg = load("tare.json")
+        self.assertTrue(cfg["files"]["totals"].get("echo"), "the example declares an echo check")
+        self.assertEqual(answerkey.soundness(cfg, EXAMPLE / config.ANSWER_DIR), [])
 
 
 class Generated(unittest.TestCase):
@@ -116,6 +252,25 @@ class RealRun(unittest.TestCase):
             with self.assertRaises(answerkey.AnswerKeyError):
                 answerkey.build(root, "keep", say=lambda _: None)
             self.assertTrue((root / "keep" / "notes.txt").is_file())
+
+    def test_packed_output_decodes_and_a_corrupted_one_stops_the_build(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cfg = packed_case(root, corrupt=False)
+            answerkey.build(root, say=lambda _: None)
+            doc = records.load_side(root / config.ANSWER_KEY)
+            self.assertEqual(doc["files"]["out"], [{"id": "A001", "amt": "-123.45", "qty": "7"},
+                                                   {"id": "B002", "amt": "99999.99", "qty": "999"}])
+            packed_case(root, corrupt=True)
+            with self.assertRaises(answerkey.UnsoundAnswerKey) as cm:
+                answerkey.build(root, say=lambda _: None)
+            self.assertIn("answer key unsound: field amt in record 3 of out is not valid packed decimal",
+                          str(cm.exception))
+            self.assertFalse((root / config.ANSWER_KEY).exists(), "no records.json from an unsound key")
+            packed_case(root, corrupt=False)  # the next run may replace the folder the unsound one left
+            answerkey.build(root, say=lambda _: None)
+            self.assertEqual(len(records.load_side(root / config.ANSWER_KEY)["files"]["out"]), 2)
+            self.assertEqual(cfg["layouts"]["PACK"]["record_length"], 10)
 
     def test_the_committed_example_reproduces(self):
         with tempfile.TemporaryDirectory() as td:

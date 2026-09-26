@@ -9,6 +9,10 @@ tare.json describes the job as JCL would:
           organization   'sequential' (default) or 'indexed' with key {offset, length} and
                          alternate_keys [{offset, length, duplicates}] (0-based byte offsets).
           output         true: the file is part of the answer key and is weighed.
+          echo           on an output file, optional round-trip checks: [{field, input, input_field, match}]:
+                         the output field reads back equal to input_field (default: field) of the input file,
+                         in the input record with the same number (match 'record', the default) or in any
+                         input record (match 'any').
   steps   [{program, dd: {DDNAME: file name}, parm, rc}]   rc lists the accepted return codes (default [0]).
 
 The z/OS pieces are stood in for by harness programs generated here from that description, each headed
@@ -18,10 +22,16 @@ text layout a z/OS program receives), and the CEE3ABD abend stub.
 
 Output (default fixtures/answer_key/): input/<file>.dat for every input, <file>.dat for every output,
 records.json (the outputs decoded with their layouts), logs/ (each step's job log) and steps.log.
+
+Before records.json is written, the output is checked for soundness: every packed-decimal (COMP-3) field holds
+valid digit and sign half-bytes, every zoned numeric field decodes, and every declared echo reads back. An
+unsound output stops the run ("answer key unsound: ...") and no records.json is written, so no port is weighed
+against it.
 """
 import os
 import shutil
 import subprocess
+from decimal import Decimal
 from pathlib import Path
 
 from . import config, records
@@ -33,6 +43,10 @@ MAX_PARM = 100
 
 
 class AnswerKeyError(RuntimeError):
+    pass
+
+
+class UnsoundAnswerKey(AnswerKeyError):
     pass
 
 
@@ -79,6 +93,8 @@ def validate(cfg: dict):
             records.check_layout(f.get("layout", "?"), config.layout_for(cfg, name))
             if config.layout_for(cfg, name)["record_length"] != n:
                 raise AnswerKeyError(f"file {name}: record_length {n} differs from its layout's")
+            for e in f.get("echo") or []:
+                _check_echo(cfg, name, e)
     for i, s in enumerate(cfg["steps"], 1):
         if not s.get("program"):
             raise AnswerKeyError(f"step {i}: no program")
@@ -88,6 +104,86 @@ def validate(cfg: dict):
         parm = s.get("parm")
         if parm is not None and (len(parm) > MAX_PARM or not all(32 <= ord(c) < 127 for c in parm)):
             raise AnswerKeyError(f"step {i}: parm must be at most {MAX_PARM} printable ASCII characters")
+
+
+def _check_echo(cfg: dict, name: str, e: dict):
+    src = e.get("input")
+    if src not in cfg["files"] or not cfg["files"][src].get("from") or not cfg["files"][src].get("layout"):
+        raise AnswerKeyError(f"file {name}: echo input {src!r} must be an input file (with 'from') with a layout")
+    for fname, owner in ((e.get("field"), name), (e.get("input_field", e.get("field")), src)):
+        if fname not in [f["name"] for f in config.layout_for(cfg, owner)["fields"]]:
+            raise AnswerKeyError(f"file {name}: echo names field {fname!r}, which is not in {owner}'s layout")
+    if e.get("match", "record") not in ("record", "any"):
+        raise AnswerKeyError(f"file {name}: echo match must be 'record' or 'any'")
+
+
+# --- soundness of the COBOL's own output ------------------------------------------------------------------
+
+def _same(a: str, b: str, numeric: bool) -> bool:
+    return Decimal(a) == Decimal(b) if numeric else a == b
+
+
+def soundness(cfg: dict, key_dir: Path) -> list:
+    """The problems in an answer key's output files <key_dir>/<file>.dat (empty list: sound), per output
+    layout: packed-decimal fields, zoned numeric fields, and the declared echo checks against
+    <key_dir>/input/<file>.dat."""
+    key_dir, problems = Path(key_dir), []
+    for name in config.outputs(cfg):
+        lay, path = config.layout_for(cfg, name), key_dir / f"{name}.dat"
+        if not path.is_file():
+            problems.append(f"{name}.dat is missing")
+            continue
+        data, n = path.read_bytes(), lay["record_length"]
+        if len(data) % n:
+            problems.append(f"{name}.dat: {len(data)} bytes is not a multiple of the record length {n}")
+            continue
+        recs = []
+        for r in range(len(data) // n):
+            rec, vals = data[r * n:(r + 1) * n], {}
+            for f in lay["fields"]:
+                raw = rec[f["offset"]:f["offset"] + f["length"]]
+                try:
+                    vals[f["name"]] = records.decode_field(raw.decode("latin-1"), f)
+                except ValueError:
+                    what = (f"not valid packed decimal (bytes {raw.hex(' ')})" if f.get("type") == "COMP-3"
+                            else f"not a valid {f.get('type')} number ({raw.decode('latin-1')!r})")
+                    problems.append(f"field {f['name']} in record {r + 1} of {name} is {what}")
+            recs.append(vals)
+        fields = {f["name"]: f for f in lay["fields"]}
+        for e in cfg["files"][name].get("echo") or []:
+            src, fin = e["input"], e.get("input_field", e["field"])
+            in_lay = config.layout_for(cfg, src)
+            try:
+                ins = [x[fin] for x in records.decode_file(key_dir / "input" / f"{src}.dat", in_lay)]
+            except (OSError, ValueError) as err:
+                problems.append(f"echo {name}.{e['field']}: input {src} does not decode ({err})")
+                continue
+            numeric = records.is_numeric(fields[e["field"]]) and records.is_numeric(
+                next(f for f in in_lay["fields"] if f["name"] == fin))
+            for r, vals in enumerate(recs, 1):
+                v = vals.get(e["field"])
+                if v is None:
+                    continue
+                if e.get("match", "record") == "any":
+                    if not any(_same(v, x, numeric) for x in ins):
+                        problems.append(f"field {e['field']} in record {r} of {name} reads {v!r}, which is no "
+                                        f"input record's {src}.{fin}")
+                elif r > len(ins) or not _same(v, ins[r - 1], numeric):
+                    want = f"({ins[r - 1]!r})" if r <= len(ins) else f"(the input has {len(ins)} records)"
+                    problems.append(f"field {e['field']} in record {r} of {name} reads {v!r}, not {src}.{fin} "
+                                    f"of input record {r} {want}")
+    return problems
+
+
+def unsound_text(problems: list, shown=5) -> str:
+    more = len(problems) - shown
+    return "answer key unsound: " + "; ".join(problems[:shown]) + (f"; and {more} more" if more > 0 else "")
+
+
+def check_sound(cfg: dict, key_dir: Path):
+    problems = soundness(cfg, key_dir)
+    if problems:
+        raise UnsoundAnswerKey(unsound_text(problems))
 
 
 # --- generated harness ------------------------------------------------------------------------------------
@@ -340,8 +436,8 @@ def build(root: Path, out_rel: str = config.ANSWER_DIR, say=print) -> dict:
         d.mkdir(parents=True)
     out = (root / out_rel).resolve()
     if out.exists():
-        if any(out.iterdir()) and not (out / config.RECORDS).is_file():
-            raise AnswerKeyError(f"{out} is not empty and holds no {config.RECORDS}; not replacing it")
+        if any(out.iterdir()) and not ((out / config.RECORDS).is_file() or (out / "steps.log").is_file()):
+            raise AnswerKeyError(f"{out} is not empty and holds no {config.RECORDS} or steps.log; not replacing it")
         shutil.rmtree(out)
     (out / "input").mkdir(parents=True)
     (out / "logs").mkdir()
@@ -409,6 +505,14 @@ def build(root: Path, out_rel: str = config.ANSWER_DIR, say=print) -> dict:
             shutil.copyfile(where[name], dst)
         counts[name] = len(dst.read_bytes()) // file_length(cfg, name)
 
+    try:
+        check_sound(cfg, out)
+    except UnsoundAnswerKey as e:
+        note(str(e))
+        (out / "steps.log").write_text("\n".join(steps_log) + "\n", encoding="utf-8", newline="\n")
+        raise
+    echoes = sum(len(cfg["files"][n].get("echo") or []) for n in counts)
+    note("soundness: packed and zoned numeric fields decode" + (f", {echoes} echo checks read back" if echoes else ""))
     shown = config.rel_to(root, out)
     command = "python -m tare answer-key" + ("" if out_rel == config.ANSWER_DIR else f" --out {shown}")
     progs = ", ".join(s["program"] for s in cfg["steps"])
