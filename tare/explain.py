@@ -27,7 +27,13 @@ VERBS = {"MOVE", "COMPUTE", "ADD", "SUBTRACT", "MULTIPLY", "DIVIDE", "IF", "ELSE
 WRITERS = {"MOVE", "COMPUTE", "ADD", "SUBTRACT", "MULTIPLY", "DIVIDE"}
 STOP_WORDS = {"ON", "NOT", "SIZE", "ERROR", "REMAINDER", "GIVING", "ROUNDED", "OF", "IN", "=", "EQUAL"}
 TOKEN = re.compile(r"'[^']*'?|\"[^\"]*\"?|\d+\.\d+|\.\d+|\d+|[A-Za-z0-9][A-Za-z0-9-]*|\*\*|[*/+\-()=:.,]")
-COPY = re.compile(r"\bCOPY\s+['\"]?([A-Za-z0-9][A-Za-z0-9_-]*)['\"]?", re.I)
+COPY = re.compile(r"(?<![A-Za-z0-9_-])COPY\s+['\"]?([A-Za-z0-9][A-Za-z0-9_-]*)['\"]?", re.I)
+# Text words of copybook text, as COPY ... REPLACING compares them: a literal, a word (which may start with '-',
+# so that 'X'-NAME and :X:-NAME split into a literal or ':X:' and '-NAME'), or one other character; commas and
+# semicolons are separators.
+RTOKEN = re.compile(r"'[^']*'?|\"[^\"]*\"?|[A-Za-z0-9_-]+|[^\s,;]")
+# Tokens of a COPY statement: pseudo-text, literals, the ending period, words, parentheses.
+CTOKEN = re.compile(r"==.*?==|'[^']*'|\"[^\"]*\"|\.(?=\s|$)|[^\s'\".,;=()]+|[()]|\S", re.S)
 DATA_ENTRY = re.compile(r"^\s*(\d{1,2})\s+([A-Za-z0-9][A-Za-z0-9-]*)(.*)$")
 PIC = re.compile(r"\bPIC(?:TURE)?\s+(?:IS\s+)?(\S+?)(?=\.?(?:\s|$))", re.I)
 USAGE = re.compile(r"\b(COMP(?:UTATIONAL)?-[1-5X]|COMP(?:UTATIONAL)?|BINARY|PACKED-DECIMAL|DISPLAY|INDEX|"
@@ -55,20 +61,113 @@ def _copybook(root: Path, cfg: dict, name: str):
     return None
 
 
+def _key(tok: str) -> str:
+    """Words compare in any letter case, literals exactly."""
+    return tok if tok[:1] in "'\"" else tok.upper()
+
+
+def _operand(toks: list, i: int) -> tuple:
+    """(text, next index) of one REPLACING operand: ==pseudo-text==, a literal, or an identifier
+    (a word, OF/IN qualifiers, a parenthesized subscript)."""
+    t = toks[i]
+    if len(t) >= 4 and t.startswith("==") and t.endswith("=="):
+        return t[2:-2].strip(), i + 1
+    if t[:1] in "'\"":
+        return t, i + 1
+    parts, i = [t], i + 1
+    while i + 1 < len(toks) and toks[i].upper() in ("OF", "IN"):
+        parts, i = parts + toks[i:i + 2], i + 2
+    if i < len(toks) and toks[i] == "(":
+        j = toks.index(")", i) + 1 if ")" in toks[i:] else len(toks)
+        parts, i = parts + toks[i:j], j
+    return " ".join(parts), i
+
+
+def copy_statement(text: str):
+    """Parse 'COPY name [OF|IN library] [SUPPRESS] [REPLACING ...].' into (name, rules), or None when the text
+    does not yet hold the statement's ending period. A rule is (mode, the words to match, the replacement
+    text) with mode None, 'LEADING' or 'TRAILING'. Raises ValueError on a REPLACING phrase it cannot read."""
+    if text.count("==") % 2:
+        return None
+    toks = CTOKEN.findall(text)
+    if "." not in toks:
+        return None
+    toks = toks[:toks.index(".")]
+    name = toks[1].strip("'\"")
+    ups = [t.upper() for t in toks]
+    if "REPLACING" not in ups:
+        return name, []
+    rules, i = [], ups.index("REPLACING") + 1
+    while i < len(toks):
+        mode = ups[i] if ups[i] in ("LEADING", "TRAILING") else None
+        i += 1 if mode else 0
+        pat, i = _operand(toks, i)
+        if i >= len(toks) or toks[i].upper() != "BY" or i + 1 >= len(toks):
+            raise ValueError(f"COPY {name} REPLACING: expected '{pat} BY <text>'")
+        rep, i = _operand(toks, i + 1)
+        words = [_key(t) for t in RTOKEN.findall(pat)]
+        if not words or (mode and len(words) != 1):
+            raise ValueError(f"COPY {name} REPLACING: {mode or ''} operand =={pat}== must hold "
+                             + ("one partial word" if mode else "at least one text word"))
+        rules.append((mode, words, rep))
+    return name, rules
+
+
+def replace_copy(codes: list, rules) -> list:
+    """Apply COPY ... REPLACING rules to a copybook's code lines (None for a comment line), as the compiler
+    does: the text words are scanned left to right; at each word the first rule that matches replaces it
+    (a match may span lines; comment lines and separators are skipped), and replaced text is not rescanned.
+    LEADING/TRAILING replace the leading/trailing part of one word. The result has the same number of lines,
+    so file:line stays true to the copybook."""
+    if not rules:
+        return codes
+    toks = [(n, m.start(), m.end(), m.group(0)) for n, c in enumerate(codes) if c is not None
+            for m in RTOKEN.finditer(c)]
+    edits, i = [], 0
+    while i < len(toks):
+        for mode, words, rep in rules:
+            t = toks[i][3]
+            if mode:
+                k, w = t.upper(), words[0]
+                if t[:1] not in "'\"" and (k.startswith(w) if mode == "LEADING" else k.endswith(w)):
+                    edits.append((i, i, rep + t[len(w):] if mode == "LEADING" else t[:len(t) - len(w)] + rep))
+                    i += 1
+                    break
+            elif [_key(x[3]) for x in toks[i:i + len(words)]] == words:
+                edits.append((i, i + len(words) - 1, rep))
+                i += len(words)
+                break
+        else:
+            i += 1
+    out = list(codes)
+    for a, b, new in reversed(edits):
+        (la, sa, _, _), (lb, _, eb, _) = toks[a], toks[b]
+        if la == lb:
+            out[la] = out[la][:sa] + new + out[la][eb:]
+            continue
+        out[la] = out[la][:sa] + new
+        for n in range(la + 1, lb):
+            if out[n] is not None:
+                out[n] = ""
+        out[lb] = " " * eb + out[lb][eb:]
+    return out
+
+
 def data_entries(root: Path, cfg: dict) -> list:
-    """Every data description entry of every program source, copybooks expanded in place:
-    [{level, name, pic, usage, sign, file, line, groups}] with groups = names of the enclosing groups."""
+    """Every data description entry of every program source, copybooks expanded in place with their
+    COPY ... REPLACING applied: [{level, name, pic, usage, sign, file, line, groups}] with groups = names of
+    the enclosing groups."""
     out = []
     for src in (cfg.get("cobol") or {}).get("sources") or []:
         stack = []
 
-        def walk(path: Path, depth=0):
+        def walk(path: Path, depth=0, rules=()):
             rel = config.rel_to(root, path)
-            lines = _read(path)
+            codes = replace_copy([_code(line) for line in _read(path)], rules)
             in_data = path.suffix.lower() not in (".cbl", ".cob") or depth > 0
             i = 0
-            while i < len(lines):
-                code = _code(lines[i])
+            while i < len(codes):
+                code = codes[i]
                 i += 1
                 if code is None:
                     continue
@@ -79,17 +178,28 @@ def data_entries(root: Path, cfg: dict) -> list:
                     return
                 m = COPY.search(code)
                 if m and in_data:
-                    cb = _copybook(root, cfg, m.group(1))
+                    where, text = f"{rel}:{i}", code[m.start():]
+                    try:
+                        parsed = copy_statement(text)
+                        while parsed is None and i < len(codes):
+                            if codes[i] is not None:
+                                text += " " + codes[i]
+                            i += 1
+                            parsed = copy_statement(text)
+                    except ValueError as e:
+                        raise ValueError(f"{where}: {e}") from None
+                    name, sub_rules = parsed or (m.group(1), [])
+                    cb = _copybook(root, cfg, name)
                     if cb is not None and depth < 5:
-                        walk(cb, depth + 1)
+                        walk(cb, depth + 1, sub_rules)
                     continue
                 m = DATA_ENTRY.match(code)
                 if not (m and in_data):
                     continue
                 level, name, rest = int(m.group(1)), m.group(2).upper(), m.group(3)
                 start = i
-                while not rest.rstrip().endswith(".") and i < len(lines):
-                    nxt = _code(lines[i])
+                while not rest.rstrip().endswith(".") and i < len(codes):
+                    nxt = codes[i]
                     i += 1
                     if nxt is not None:
                         rest += " " + nxt.strip()
