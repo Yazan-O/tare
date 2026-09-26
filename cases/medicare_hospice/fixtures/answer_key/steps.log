@@ -1,0 +1,7 @@
+compiled HOSDR210, HOSPR210, HOSRUN with cobc -m -std=ibm; harness: CEE3ABD (generated from tare.json, see work/answer_key_build/harness/)
+cbsafile: 7478 records of 80 bytes from input/cbsafile.txt
+provfile: 1 records of 240 bytes from input/provfile.txt
+billfile: 5000 records of 315 bytes from input/billfile.txt
+step 1: HOSRUN DD CBSAFILE=cbsafile, PROVFILE=provfile, BILLFILE=billfile, RATEFILE=ratefile: return code 0
+soundness: packed and zoned numeric fields decode, 1 echo checks read back
+records: ratefile 5000
