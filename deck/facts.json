@@ -1,0 +1,102 @@
+{
+ "tests_run": {
+  "value": 4,
+  "source": "RUN_LOG.txt: 'Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elaps...'"
+ },
+ "tests_passed": {
+  "value": 4,
+  "source": "RUN_LOG.txt: run - failures - errors - skipped"
+ },
+ "coauthor": {
+  "value": "Qwen-Coder",
+  "source": "RUN_LOG.txt: git log of the port at 5124d1c"
+ },
+ "ain_records": {
+  "value": 408,
+  "source": "cases/taxe_fonciere/fixtures/answer_key/records.json"
+ },
+ "ain_ai_differ": {
+  "value": 408,
+  "source": "cases/taxe_fonciere/fixtures/sides/java-ai/records.json against the answer key"
+ },
+ "ain_fx_differ": {
+  "value": 0,
+  "source": "cases/taxe_fonciere/fixtures/sides/java-ai-fixed/records.json against the answer key"
+ },
+ "fr_records": {
+  "value": 35389,
+  "source": "site/data/communes.json: records"
+ },
+ "fr_ai_differ": {
+  "value": 35268,
+  "source": "site/data/communes.json: sides.java-ai.records_differ"
+ },
+ "fr_fx_differ": {
+  "value": 0,
+  "source": "site/data/communes.json: sides.java-ai-fixed.records_differ"
+ },
+ "hero_name": {
+  "value": "L'Abergement-Clémenciat",
+  "source": "site/data/communes.json: name"
+ },
+ "hero_tcthfr_cobol": {
+  "value": 133364,
+  "source": "site/data/communes.json: answer_key.tcthfr[01001]"
+ },
+ "hero_tcthfr_port": {
+  "value": 133364,
+  "source": "site/data/communes.json: sides.java-ai.values.tcthfr[01001]"
+ },
+ "hero_mfa300_cobol": {
+  "value": 1325,
+  "source": "site/data/communes.json: answer_key.mfa300[01001]"
+ },
+ "hero_mfa300_port": {
+  "value": 5831,
+  "source": "site/data/communes.json: sides.java-ai.values.mfa300[01001]"
+ },
+ "hero_mfn300_cobol": {
+  "value": 2651,
+  "source": "site/data/communes.json: answer_key.mfn300[01001]"
+ },
+ "hero_mfn300_port": {
+  "value": 4771,
+  "source": "site/data/communes.json: sides.java-ai.values.mfn300[01001]"
+ },
+ "hero_tctfra_cobol": {
+  "value": 4051,
+  "source": "site/data/communes.json: answer_key.tctfra[01001]"
+ },
+ "hero_tctfra_port": {
+  "value": 10677,
+  "source": "site/data/communes.json: sides.java-ai.values.tctfra[01001]"
+ },
+ "hero_tctdu_cobol": {
+  "value": 137415,
+  "source": "site/data/communes.json: answer_key.tctdu[01001]"
+ },
+ "hero_tctdu_port": {
+  "value": 144041,
+  "source": "site/data/communes.json: sides.java-ai.values.tctdu[01001]"
+ },
+ "map_drawn": {
+  "value": 35227,
+  "source": "site/data/map.json communes present in communes.json (as app.js draws them)"
+ },
+ "map_ai_red": {
+  "value": 35110,
+  "source": "drawn communes with java-ai ndiff > 0"
+ },
+ "map_fx_red": {
+  "value": 0,
+  "source": "drawn communes with java-ai-fixed ndiff > 0"
+ },
+ "gate_blocked": {
+  "value": "TARE: blocked. 408 of 408 records differ from the answer key",
+  "source": "TRANSCRIPT.txt: hook exit 2"
+ },
+ "gate_balanced": {
+  "value": "TARE BALANCED: 408 of 408 records balance",
+  "source": "TRANSCRIPT.txt: weigh exit 0"
+ }
+}
