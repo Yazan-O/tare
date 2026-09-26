@@ -177,9 +177,15 @@ def render(summary: dict, side: str, out_path, program=None) -> Path:
     if balanced:
         pen.text((px, GROUND + 20), f"{n} of {n} records balance", fonts["line"], anchor="c")
     else:
+        lo = px + 96 + 16  # keep the red text clear of the ground hatching
         for detail in details(summary):
-            pen.text((_clamp(rx, pen.width(detail, fonts["line"])), y), detail, fonts["line"], fill=RED, anchor="c")
-            y += 30
+            parts = [detail]
+            if pen.width(detail, fonts["line"]) > W - MARGIN - lo and " records " in detail:
+                head, tail = detail.split(" records ", 1)
+                parts = [head, "records " + tail]
+            for part in parts:
+                pen.text((_clamp(rx, pen.width(part, fonts["line"]), lo=lo), y), part, fonts["line"], fill=RED, anchor="c")
+                y += 30
 
     out = img.resize((W, H), Image.LANCZOS)
     out_path = Path(out_path)
