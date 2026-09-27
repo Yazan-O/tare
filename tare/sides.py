@@ -72,6 +72,12 @@ def use_fixture(root: Path, side: str) -> Path:
 def source_patterns(root: Path, side: str) -> list:
     if side == config.PORT_SIDE:
         return list(config.PORT_SOURCES)
+    try:
+        g = config.gate_spec(config.load_config(root))
+    except ValueError:
+        g = None
+    if g and g["side"] == side:
+        return list(g["sources"])
     d = _java_dir(declared(root).get(side, {}))
     return [f"{d}/**/*.java", f"{d}/MAIN"] if d else []
 

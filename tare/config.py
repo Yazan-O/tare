@@ -165,6 +165,48 @@ def sides(cfg: dict) -> dict:
     return {k: v for k, v in (cfg.get("sides") or {}).items() if SIDE_RE.match(k) and k != PORT_SIDE}
 
 
+# Top-level paths a case's gate sources may never name: the gate's own policy, Tare, Bob's configuration, the
+# answer key and the recorded outputs, and the COBOL stay read-only whatever tare.json declares.
+GATE_NEVER = ("tare.json", "tare", ".bob", "fixtures", "mainframe", ".tare", "work", "cache")
+
+
+def gate_spec(cfg: dict):
+    """The case's own gate, tare.json 'gate': {"side": a declared side, "sources": [globs relative to the case
+    root]}, or None when the case declares none (the side under test is then 'local' with PORT_SOURCES). The
+    gate trusts this field only while tare.json equals git HEAD. Raises ValueError when it is malformed."""
+    g = cfg.get("gate")
+    if g is None:
+        return None
+    side = g.get("side") if isinstance(g, dict) else None
+    srcs = g.get("sources") if isinstance(g, dict) else None
+    if not (isinstance(side, str) and SIDE_RE.match(side) and side != PORT_SIDE and side in sides(cfg)):
+        raise ValueError(f"tare.json 'gate': side {side!r} is not a declared side other than {PORT_SIDE!r}")
+    if not (isinstance(srcs, list) and srcs and all(isinstance(s, str) and s for s in srcs)):
+        raise ValueError("tare.json 'gate': sources must be a non-empty list of globs")
+    for s in srcs:
+        parts = s.split("/")
+        if s.startswith("/") or ":" in s or "\\" in s or ".." in parts or parts[0] in GATE_NEVER:
+            raise ValueError(f"tare.json 'gate': source {s!r} must be a relative path outside {', '.join(GATE_NEVER)}")
+    return {"side": side, "sources": tuple(srcs)}
+
+
+def glob_regex(pattern: str):
+    """A compiled regex for one gate source glob over posix paths: '**/' spans folders, '*' stays in one."""
+    out, i = "", 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            out, i = out + "(?:.*/)?", i + 3
+        elif pattern.startswith("**", i):
+            out, i = out + ".*", i + 2
+        elif pattern[i] == "*":
+            out, i = out + "[^/]*", i + 1
+        elif pattern[i] == "?":
+            out, i = out + "[^/]", i + 1
+        else:
+            out, i = out + re.escape(pattern[i]), i + 1
+    return re.compile(out + r"\Z")
+
+
 def local_entry(cfg: dict) -> dict:
     """How the port under test is built and run, when the case declares it: tare.json sides.local
     {runner, repo, commit, licence, line, source, causes}. Without a runner, port/ is compiled with javac and

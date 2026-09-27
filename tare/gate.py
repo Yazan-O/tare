@@ -13,8 +13,10 @@ a relaxed tare.json, an edited answer key, `Git commit`, `git merge`, a python o
 clean runner is the backstop against deliberate tampering (forging .tare/ records or provenance, a port
 that opens the answer key by absolute path, `git commit --no-verify`, TARE_MAINTAINER=1 in a script).
 
-Policy fixed in code, not read from tare.json: the side under test is 'local', its sources are
-port/**/*.java and port/MAIN, and its answer key is fixtures/answer_key/records.json. tare.json, fixtures/,
+Every case a commit can carry is checked: the case the command acts on, then each other case with a change
+in the same git working tree. Per case, the side under test is 'local' with sources port/**/*.java and
+port/MAIN, unless the case's tare.json declares 'gate' {side, sources} and equals git HEAD; the answer key is
+always fixtures/answer_key/records.json. A declared source may differ from HEAD; tare.json, fixtures/,
 mainframe/, sides/, tare/ and .bob/ must equal git HEAD (working tree and index); tare/ and .bob/ are the case
 root's, else the Tare package and the nearest .bob/ above the case root. Two differences are allowed:
 tare.json's 'accepted' list when `python -m tare accept` wrote it (sealed in .tare/accept_seal.json), and
@@ -266,10 +268,12 @@ def _always_allow_only(root: Path, top: Path, rel: str) -> bool:
         return False
 
 
-def protected_changes(root: Path, rec):
+def protected_changes(root: Path, rec, exempt=(), exempted=None):
     """([changed paths], 'git' | 'record' | None): PROTECTED paths that differ from git HEAD in the working
     tree or index (untracked files included); without git, those whose hash differs from the last weigh.
-    git reports paths relative to the top of the working tree."""
+    git reports paths relative to the top of the working tree. Paths matching the `exempt` globs (the case's
+    declared gate sources, relative to root) are left out and appended to `exempted` instead, unless
+    tare.json itself changed."""
     from . import config
     top = _git_top(root)
     if top is not None:
@@ -295,6 +299,14 @@ def protected_changes(root: Path, rec):
                 paths = [p for p in paths if p != tare_json]
             paths = [p for p in paths if not ((p == ".bob/mcp.json" or p.endswith("/.bob/mcp.json"))
                                               and _always_allow_only(root, top, p))]
+            if exempt and tare_json not in paths:
+                pats = [config.glob_regex(g) for g in exempt]
+                prefix = tare_json[:-len("tare.json")]
+                free = [p for p in paths if p.startswith(prefix)
+                        and any(x.match(p[len(prefix):]) for x in pats)]
+                if exempted is not None:
+                    exempted.extend(p[len(prefix):] for p in free)
+                paths = [p for p in paths if p not in free]
             return sorted(set(paths)), "git"
     if rec and isinstance(rec.get("protected"), dict):
         now, old = config.hash_protected(root), rec["protected"]
@@ -307,33 +319,52 @@ def _few(paths, n=3):
 
 
 def verdict(root: Path, git_hook=False):
-    """(allowed, message) for the port under test ('local', pinned in code)."""
+    """(allowed, message) for the case's port under test: the side and sources its tare.json 'gate' declares
+    while tare.json equals git HEAD, else 'local' with PORT_SOURCES (pinned in code)."""
     from . import config
-    rec_path = root / ".tare" / f"weigh_{config.PORT_SIDE}.json"
+    maintainer = git_hook and os.environ.get("TARE_MAINTAINER") == "1"
+    declared = config.gate_spec(config.load_config(root))
+    if declared and not maintainer and _git_top(root) is None:
+        declared = None  # without git, tare.json cannot be checked against HEAD: the pinned policy applies
+    side, sources = (declared["side"], declared["sources"]) if declared else (config.PORT_SIDE,
+                                                                             config.PORT_SOURCES)
+    local = side == config.PORT_SIDE
+    rec_path = root / ".tare" / f"weigh_{side}.json"
     rec = json.loads(rec_path.read_text(encoding="utf-8")) if rec_path.is_file() else None
-    if not (git_hook and os.environ.get("TARE_MAINTAINER") == "1"):
-        changed, how = protected_changes(root, rec)
+    edited = []
+    if not maintainer:
+        changed, how = protected_changes(root, rec, sources if declared else (), edited)
         if changed:
             verb = "differs" if len(changed) == 1 else "differ"
             where = f"{verb} from git HEAD" if how == "git" else "changed after the last weigh"
             return False, (f"{BLOCKED}{_few(changed)} {where}. tare.json, fixtures/, mainframe/, sides/, tare/ and "
                            ".bob/ are read-only in a Tare session: restore them (git restore <path>), or ask the "
                            "repo's owner. An accepted difference is added only with python -m tare accept.")
-    now = config.hash_sources(root, config.PORT_SOURCES)
+    now = config.hash_sources(root, sources)
     if not now:
-        return True, "TARE: no port sources yet (port/**/*.java, port/MAIN); nothing to weigh."
+        return True, f"TARE: no port sources yet ({', '.join(sources)}); nothing to weigh."
     if rec is None:
-        return False, (f"{BLOCKED}No weigh on record for the port under test (local). "
-                       "Run weigh with side local (it runs the port first).")
+        return False, (f"{BLOCKED}No weigh on record for the port under test ({side}). "
+                       f"Run weigh with side {side}" + (" (it runs the port first)." if local else "."))
     if rec.get("sources") != now:
         changed = sorted(set(now) ^ set(rec.get("sources") or {})
                          | {k for k in now if (rec.get("sources") or {}).get(k) not in (None, now[k])})
         return False, (f"{BLOCKED}The port changed after the last weigh ({_few(changed)}). "
-                       "Weigh it again with side local (it reruns the port).")
-    prov = rec.get("provenance") or {}
-    if prov.get("sources") != now or prov.get("output_sha256") != rec.get("port_sha256"):
-        return False, (f"{BLOCKED}The last weigh is not tied to a run of the current port sources. "
-                       "Weigh again with side local (it reruns the port).")
+                       f"Weigh it again with side {side}" + (" (it reruns the port)." if local else "."))
+    if local:
+        prov = rec.get("provenance") or {}
+        if prov.get("sources") != now or prov.get("output_sha256") != rec.get("port_sha256"):
+            return False, (f"{BLOCKED}The last weigh is not tied to a run of the current port sources. "
+                           "Weigh again with side local (it reruns the port).")
+    else:
+        out = Path(rec.get("port_path") or "")
+        if not out.is_file() or config.sha256_file(out) != rec.get("port_sha256"):
+            return False, (f"{BLOCKED}The output the last weigh of {side} read has changed or is gone. "
+                           f"Weigh it again with side {side}.")
+        if edited and rec.get("recorded"):
+            return False, (f"{BLOCKED}The last weigh of {side} read its recorded output in fixtures/, not a run "
+                           f"of the edited port ({_few(sorted(set(edited)))}). Run the port (python -m tare "
+                           f"run-port {side}), then weigh it again with side {side}.")
     key = root / config.ANSWER_KEY
     if not key.is_file() or rec.get("answer_sha256") != config.sha256_file(key):
         return False, f"{BLOCKED}The answer key changed after the last weigh. Weigh it again."
@@ -370,9 +401,7 @@ def advances_a_branch(root: Path, lines) -> bool:
 GIT_C = re.compile(r"\bgit(?:\.exe)?\b[^;&|\n]*?\s-C\s+(\"[^\"]+\"|'[^']+'|\S+)", re.I)
 
 
-def case_for(payload, cwd=None):
-    """The case a command acts on: the case holding the folder of a `git -C <dir>` in it (such as the nested
-    clone cases/<case>/port), else None."""
+def _case_and_dir(payload, cwd=None):
     from . import config
     cwd = Path(cwd or Path.cwd())
     for c in command_strings(payload):
@@ -382,7 +411,56 @@ def case_for(payload, cwd=None):
             if d.is_dir():
                 hit = config.case_root(d)
                 if hit is not None:
-                    return hit
+                    return hit, d
+    return None, None
+
+
+def case_for(payload, cwd=None):
+    """The case a command acts on: the case holding the folder of a `git -C <dir>` in it (such as the nested
+    clone cases/<case>/port), else None."""
+    return _case_and_dir(payload, cwd)[0]
+
+
+def touched_cases(where: Path, skip=None) -> list:
+    """Case roots (folders holding tare.json) with a change in the working tree or index of the git working
+    tree holding `where`, untracked files included, other than `skip`: the cases a commit made there can
+    carry. Empty without git."""
+    top = _git_top(where)
+    if top is None:
+        return []
+    r = _git(where, "--no-optional-locks", "status", "--porcelain=v1", "-z", "--untracked-files=all")
+    if r.returncode:
+        raise ValueError(f"git status failed in {top}: {r.stderr.decode('utf-8', 'replace').strip()}")
+    skip = Path(skip).resolve() if skip else None
+    found, seen = [], {}
+    for e in r.stdout.decode("utf-8", "replace").split("\0"):
+        if len(e) <= 3:
+            continue
+        d = (top / e[3:]).parent
+        while d != top and top in d.parents:
+            if d not in seen:
+                seen[d] = (d / "tare.json").is_file()
+            if seen[d]:
+                if d != skip and d not in found:
+                    found.append(d)
+                break
+            d = d.parent
+    return sorted(found)
+
+
+def verdict_all(root: Path, where: Path, git_hook=False):
+    """verdict(root), then the verdict of every other case with changes in the git working tree at `where`;
+    the first block wins."""
+    ok, msg = verdict(root, git_hook=git_hook)
+    return (ok, msg) if not ok else (_other_cases(root, where, git_hook) or (ok, msg))
+
+
+def _other_cases(root: Path, where: Path, git_hook=False):
+    """The first block among the touched cases other than root, else None."""
+    for other in touched_cases(where, skip=root):
+        ok, msg = verdict(other, git_hook=git_hook)
+        if not ok:
+            return ok, f"{msg} (case {other.name})"
     return None
 
 
@@ -399,7 +477,12 @@ def main(stdin=None, git_hook=None) -> int:
             if git_hook == "reference-transaction" and not advances_a_branch(
                     root, (stdin if stdin is not None else sys.stdin).read().splitlines()):
                 return 0
-            ok, msg = verdict(root, git_hook=True)
+            hook_repo = os.environ.get("TARE_HOOK_REPO")
+            if git_hook in ("pre-commit", "pre-merge-commit") and hook_repo and \
+                    _git_top(root) == Path(hook_repo).resolve():
+                ok, msg = verdict_all(root, root, git_hook=True)
+            else:
+                ok, msg = verdict(root, git_hook=True)
         except Exception as e:  # never fail open
             ok, msg = False, f"{BLOCKED}The gate hit an error: {type(e).__name__}: {e}"
         if not ok:
@@ -426,9 +509,14 @@ def main(stdin=None, git_hook=None) -> int:
             return 0
         if not gated(payload):
             return 0
-        if not os.environ.get("TARE_ROOT"):
-            root = case_for(payload) or root
-        ok, msg = verdict(root)
+        hit, where = (None, None) if os.environ.get("TARE_ROOT") else _case_and_dir(payload)
+        if hit is None:
+            ok, msg = verdict_all(root, Path.cwd())
+        else:
+            ok, msg = verdict(hit)
+            # a commit in a repository of its own inside the case (git -C cases/<case>/port) carries only it
+            if ok and _git_top(where) == _git_top(hit):
+                ok, msg = _other_cases(hit, where) or (ok, msg)
         if ok:
             return 0
         _say(msg)
