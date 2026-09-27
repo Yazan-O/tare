@@ -1,27 +1,3 @@
-"""Fetch the three third-party pieces of this case into cache/ (git-ignored), at pinned digests.
-
-  cache/cobol/            CMS's FY2021.0 Hospice Pricer, unmodified, from the FY2021 Hospice mainframe
-                          release on cms.gov: HOSDR210.cbl, HOSPR210.cbl, HOSPRATE.cpy and the wage-index
-                          file CBSA2021. Public domain (CMS's archive is CC0, citing 17 U.S.C. 105).
-  cache/cms_java/         CMS's own Java migration, Hospice Pricer 2.5.1: the executable JAR and the
-                          source of the two classes this case cites, from cms.gov/pricersourcecodesoftware.
-                          A FOIA transparency release with no licence file, so it is fetched at run time
-                          and never committed.
-  cache/repos/rcaran/     rcaran/hospice-cms-pricer-java, the published AI-assisted port, at its pinned
-                          commit. It has no licence file either (the GitHub API reports licenseInfo null),
-                          so it is fetched at run time and never committed.
-  cache/build/            the AI port's Maven build, one copy per side variant, with
-                          sides/ai_port_fixes.json applied to the 'fixed' one.
-  cache/m2/               the Maven repository the build downloads into (a few hundred MB).
-
-  python fetch.py              the three sources, verified against the digests below
-  python fetch.py --build      also build both variants of the AI port with Maven, so that
-                               `python -m tare reproduce` does not have to
-  python fetch.py --clean      delete cache/build and cache/m2 (the fixtures are recorded; the
-                               build caches are the only large part of cache/)
-  python build_input.py        rebuild input/ from the fetched tables (the committed input is the
-                               same bytes; the SHA-256 of the claims file is in README.md)
-"""
 import argparse
 import hashlib
 import io
@@ -40,7 +16,6 @@ COBOL = CACHE / "cobol"
 CMS_JAVA = CACHE / "cms_java"
 REPOS = CACHE / "repos"
 
-# CMS's FY2021.0 Hospice mainframe release (HOSDR210, HOSPR210, HOSPRATE, CBSA2021, TESTJCL).
 COBOL_URL = ("https://www.cms.gov/files/zip/"
              "fy-20210-hospice-mf-software-v210-claims-dated-100120-093021-posted-11172020.zip")
 COBOL_ZIP = DL / "hospice-21.0-mf.zip"
@@ -48,18 +23,16 @@ COBOL_SHA256 = "4b80ad6964d02378431e853d8c716b33500607b9e09ef6d9f8f799459783e467
 COBOL_FILES = {"HOSDR210": "HOSDR210.cbl", "HOSPR210": "HOSPR210.cbl", "HOSPRATE": "HOSPRATE.cpy",
                "CBSA2021": "CBSA2021", "TESTJCL": "TESTJCL"}
 
-# CMS's own Java migration, Hospice Pricer 2.5.1 (the executable JAR and its source).
 CMS_JAR_URL = "https://www.cms.gov/files/zip/hospice-pricer-20250-v240-executable-jar.zip"
 CMS_JAR_ZIP = DL / "hospice-pricer-executable-jar.zip"
-CMS_ZIP_SHA256 = "6306acd8bc032d7240febc968d0d82ab2be6898ecb42dd3758ecc8e496271b9b"   # the ZIP
+CMS_ZIP_SHA256 = "6306acd8bc032d7240febc968d0d82ab2be6898ecb42dd3758ecc8e496271b9b"
 CMS_SRC_URL = "https://www.cms.gov/files/zip/hospice-pricer-20250-v240-java-source-code.zip"
 CMS_SRC_ZIP = DL / "hospice-pricer-20250-v240-java-source-code.zip"
 CMS_SRC_SHA256 = "6cdba0a4a0a9c91f3460714aeb0352b9eaedefadff4d2d351c8c60edc532d19c"
 CMS_JAR = CMS_JAVA / "hospice-pricer-application-2.5.1.jar"
 CMS_JAR_SHA256 = "8463ea46eca855c9c3a2c8eaac2293688f1bc1919c6ce3af3d21b129871c72fe"
-CMS_JAR_VERSION = "2.5.1.2025-11-13T21:19:01Z"          # Implementation-Version in the JAR manifest
+CMS_JAR_VERSION = "2.5.1.2025-11-13T21:19:01Z"
 
-# The published AI-assisted port: no licence file, fetched at run time, never committed.
 AI_URL = "https://github.com/rcaran/hospice-cms-pricer-java.git"
 AI_COMMIT = "655847671859b67a188c5dae6a86c45a74bfa046"
 
@@ -73,7 +46,6 @@ def sha256(path: Path) -> str:
 
 
 def download(url: str, dest: Path, want: str) -> Path:
-    """dest, downloaded unless it is already there with digest `want` (then it is verified)."""
     if dest.is_file() and sha256(dest) == want:
         print(f"  {dest.relative_to(HERE).as_posix()} ({dest.stat().st_size} bytes, sha256 as pinned)")
         return dest
@@ -119,7 +91,7 @@ def fetch_cms_java():
     if src.is_dir():
         shutil.rmtree(src)
     with zipfile.ZipFile(src_zip) as f:
-        for i in f.infolist():                      # the release holds one sources ZIP per module
+        for i in f.infolist():
             with zipfile.ZipFile(io.BytesIO(f.read(i))) as inner:
                 inner.extractall(src)
     n = len(list(src.rglob("*.java")))
@@ -147,7 +119,6 @@ def fetch_ai():
 
 
 def build_ai():
-    """Build both variants of the AI port with Maven, so a later reproduce does not have to."""
     from tare import localport
     sys.path.insert(0, str(HERE / "sides"))
     from port_runner import build_ai as build

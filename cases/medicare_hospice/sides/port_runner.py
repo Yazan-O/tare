@@ -1,23 +1,3 @@
-"""Side runner for the two Java ports (tare.json 'sides'): price the answer key's claims through one of
-them and write the 315-byte RATEFILE records Tare weighs.
-
-  --which cms                       CMS's own Java migration, Hospice Pricer 2.5.1 (the executable JAR
-                                    fetched into cache/cms_java by fetch.py), started as a Dropwizard
-                                    server with its 2021 tables and priced over POST /v2/price-claim
-  --which ai --variant published    rcaran/hospice-cms-pricer-java as published, built with Maven
-  --which ai --variant fixed        the same commit with sides/ai_port_fixes.json applied by
-                                    sides/fix_port.py, built with Maven into cache/build/fixed/
-
-Tare runs it from the case root with --input <answer key input dir> --out work/runs/<side>. It reads
-<input>/billfile.dat with the BILL315 layout and writes <out>/ratefile.dat in the RATE315 layout: every
-315-byte record of the input is written back whole with the pricer's returned amounts, return code and
-day counts in their COBOL slots, exactly as harness/HOSRUN.cbl writes back what HOSDR210 returns. The
-claim id in the record's trailing FILLER is never touched, so the weigh matches records by it.
-
-Every field offset comes from tare.json's layouts; this file holds none of its own. Neither port is
-committed: the CMS JAR and the AI port live under cache/ and are fetched at run time. Needs a JDK >= 21
-(the AI port targets 21) and, for the AI port, Maven.
-"""
 import argparse
 import glob
 import hashlib
@@ -33,7 +13,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent              # the case folder
+HERE = Path(__file__).resolve().parent
 CASE = HERE.parent
 sys.path.insert(0, str(CASE.parents[1]))
 from tare import config, localport, records  # noqa: E402
@@ -42,19 +22,14 @@ import fix_port  # noqa: E402
 
 CACHE = CASE / "cache"
 CMS_JAR = CACHE / "cms_java" / "hospice-pricer-application-2.5.1.jar"
-AI_ROOT = CACHE / "repos" / "rcaran"                     # the port's root, as cloned
-AI_REPO = AI_ROOT / "hospice-pricer-api"               # its Maven module
+AI_ROOT = CACHE / "repos" / "rcaran"
+AI_REPO = AI_ROOT / "hospice-pricer-api"
 AI_JAR_NAME = "hospice-pricer-api-1.0.0-SNAPSHOT.jar"
 AI_MAIN = "com.cms.hospice.HospicePricerApplication"
-M2 = CACHE / "m2"                                    # the Maven repository, inside the git-ignored cache
-# FY2021 is the only fiscal year in the input (every claim's service date is 2020-10-01..2021-09-30),
-# so CMS's server is started with that year's tables; its pricer.yml lists 2020-2026 by default.
+M2 = CACHE / "m2"
 FY = 2021
 FY_FIRST, FY_LAST = "20201001", "20210930"
 SLOTS = ("rev1", "rev2", "rev3", "rev4")
-# The four per-level-of-care payments, in COBOL slot order: 0651 routine home care, 0652 continuous
-# home care, 0655 inpatient respite care, 0656 general inpatient care. Every port returns them in that
-# order (the revenue code CMS's Java labels each with follows the claim's own billing order instead).
 PAY = ("pay_rhc", "pay_chc", "pay_irc", "pay_gic")
 
 
@@ -79,10 +54,7 @@ def free_port() -> int:
         return s.getsockname()[1]
 
 
-# --- the claims, read and written through the layouts in tare.json ------------------------------------
-
 def read_claims(input_dir: Path, cfg: dict) -> list:
-    """The input records as claims (each keeping its 315 bytes), with the fiscal year checked."""
     lay = config.layout_for(cfg, "billfile")
     data = (Path(input_dir) / "billfile.dat").read_bytes()
     out = []
@@ -101,34 +73,26 @@ def read_claims(input_dir: Path, cfg: dict) -> list:
 
 
 def money(value) -> int:
-    """A payment as the integer cents its PIC 9(06)V99 field holds."""
     return int(round(float(value or 0) * 100))
 
 
 def encode(record: bytes, result: dict, lay: dict) -> bytes:
-    """The claim's 315-byte record with the pricer's fields written into their COBOL slots.
-
-    The input record is the base, because the pricer returns the same 315-byte record it was given with
-    its own fields filled in: every byte the pricer does not write (the claim id, the bill itself) is
-    carried through unchanged, exactly as HOSRUN writes back what HOSDR210 returns."""
     out = bytearray(record)
     for f in lay["fields"]:
         v = result.get(f["name"])
         if v is None:
             if f["name"] in lay["key"]:
-                continue                            # the claim id, already in the record
+                continue
             sys.exit(f"the port returned no {f['name']} for claim {result.get('id')}")
         if f.get("type", "X") == "X":
             text = str(v)[:f["length"]].ljust(f["length"])
         elif f.get("scale"):
-            text = f"{money(v):0{f['length']}d}"          # PIC 9(06)V99 holds integer cents
+            text = f"{money(v):0{f['length']}d}"
         else:
             text = f"{int(v):0{f['length']}d}"
         out[f["offset"]:f["offset"] + f["length"]] = text.encode("latin-1")
     return bytes(out)
 
-
-# --- the two ports ------------------------------------------------------------------------------------
 
 def post(url: str, body: dict, tries: int = 1) -> dict:
     req = urllib.request.Request(url, json.dumps(body).encode("latin-1"),
@@ -151,7 +115,6 @@ def iso(d: str) -> str:
 
 
 class Server:
-    """A port's HTTP server: start it, wait for the port, yield, stop it."""
 
     def __init__(self, argv, port: int, log: Path):
         self.argv, self.port, self.log = argv, port, log
@@ -183,7 +146,6 @@ class Server:
 
 
 def build_ai(variant: str, env: dict) -> Path:
-    """The AI port's jar for this variant, built once per (commit, fixes) under cache/build/<variant>/."""
     if not (AI_REPO / "pom.xml").is_file():
         sys.exit(f"the AI port is not in {AI_REPO}; run: python fetch.py")
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=AI_REPO, capture_output=True, text=True,
@@ -204,7 +166,7 @@ def build_ai(variant: str, env: dict) -> Path:
         if spec["commit"] != head:
             sys.exit(f"{fix_port.SPEC.name} is for commit {spec['commit'][:7]}, the port is at {head[:7]}")
         try:
-            changed = fix_port.apply(out, spec)                 # paths relative to the port's root
+            changed = fix_port.apply(out, spec)
         except fix_port.FixError as e:
             sys.exit(str(e))
         same = [rel for rel in changed if (out / rel).read_bytes() == (AI_ROOT / rel).read_bytes()]
@@ -244,8 +206,6 @@ def price_cms(claims: list, port: int, jdk: Path, log: Path) -> list:
     with Server(argv, port, log), ThreadPoolExecutor(8) as ex:
         for c, js in ex.map(one, claims):
             pay = js.get("paymentData") or {}
-            # CMS's Java returns the four level-of-care amounts in COBOL slot order, so they are read
-            # positionally; the revenue code it labels each with follows the claim's own billing order.
             bills = (pay.get("billPayments") or [])[:4]
             eol = [0.0] * 7
             for e in pay.get("endOfLifeAddOnDaysPayments") or []:

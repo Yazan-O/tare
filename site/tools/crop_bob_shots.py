@@ -1,8 +1,3 @@
-"""Crop the owner's Bob IDE stills (bob_sessions/, chat pane 1060x1020) into the page's figures: Bob's
-header strip (task title and coin counter) above the chat region each figure is about.
-
-Usage (from the repository root): python site/tools/crop_bob_shots.py
-"""
 from pathlib import Path
 
 from PIL import Image
@@ -10,8 +5,8 @@ from PIL import Image
 TARE = Path(__file__).resolve().parents[2]
 SRC = TARE / "bob_sessions"
 OUT = TARE / "site" / "dist" / "img"
-HEADER = (88, 136)                       # the task title row with the coin counter
-CROPS = {                                # out name: (still, first row, last row)
+HEADER = (88, 136)
+CROPS = {
     "bob_1_blocked.png": ("tare_task01_01_first_block_no_weigh.png", 595, 750),
     "bob_2_subagents.png": ("tare_task01_03_two_subagents_running.png", 336, 745),
     "bob_3_stale_edit.png": ("tare_task01_05_stale_edit_block.png", 414, 662),

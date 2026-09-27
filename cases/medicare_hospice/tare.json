@@ -1,5 +1,5 @@
 {
-  "about": "US Medicare hospice pricing, the FY2021.0 Hospice Pricer of the Centers for Medicare & Medicaid Services (HOSDR210 -> HOSPR210, public domain, cms.gov). Input: 5,000 synthetic claims constructed from public CMS tables (see README.md and build_input.py); each claim bills 0651 routine home care, and 15% of them also bill 0652 continuous home care.",
+  "about": "US Medicare hospice pricing, the FY2021.0 Hospice Pricer of the Centers for Medicare & Medicaid Services (HOSDR210 -> HOSPR210, public domain, cms.gov). Input: 5,000 synthetic claims constructed from public CMS tables (build_input.py); each claim bills 0651 routine home care, and 15% of them also bill 0652 continuous home care.",
   "program": "HOSDR210 -> HOSPR210 (FY2021.0)",
   "cobol": {
     "sources": [

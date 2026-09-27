@@ -1,15 +1,3 @@
-"""Side runner for the Java port (tare.json 'sides'): build it with Maven, run it on the answer key's input.
-
-  --variant ai      the port as published (omnipede/taxe-fonciere @ JAVA_COMMIT, folder taxe-fonciere-java)
-  --variant fixed   a build copy of the same port with the two fixes below applied
-  --variant local   the port under test: the nested clone port/ (python fetch.py --local), as it is now,
-                    built in a fresh copy under --sandbox (Tare passes work/sandbox/local)
-
-Tare runs it from the case root with --input <answer key input dir> --out work/runs/<side>; it writes
-<out>/retours.dat in the COBOL's output layout through the adapter sides/java/TareJavaSide.java.
-The port is CeCILL-2.1: it lives in cache/ (fetch.py), is built under cache/build/<variant>/ and is never
-committed. Needs a JDK >= 17 and Maven (on PATH, MAVEN_HOME, or C:/Tools/apache-maven-*).
-"""
 import argparse
 import glob
 import hashlib
@@ -19,19 +7,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parents[1]           # the case folder
-sys.path.insert(0, str(HERE.parents[1]))             # the repository root, for tare.localport.find_jdk
+HERE = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(HERE.parents[1]))
 from tare import localport  # noqa: E402
 
 PORT = HERE / "cache" / "repos" / "omnipede" / "taxe-fonciere-java"
-LOCAL = HERE / "port" / "taxe-fonciere-java"      # the nested clone Bob repairs (fetch.py --local)
+LOCAL = HERE / "port" / "taxe-fonciere-java"
 ADAPTER = Path(__file__).resolve().parent / "java" / "TareJavaSide.java"
 JAR = "target/taxe-fonciere-java-1.0.0.jar"
 CALC = "src/main/java/fr/dgfip/taxefonciere/calculator/BuiltPropertyCalculator.java"
 RET = "src/main/java/fr/dgfip/taxefonciere/model/output/RetourB.java"
-# The two fixes, as (file, text found exactly once, replacement). EFITA3B8 moves 0.0300/0.0100 into the
-# 3% tier and 0.0800/0.0440 into the 8% tier, and its total before fees (TCTHFR) includes the
-# household-waste tax (W-TOTCOT8 holds W-TOTCOTOM).
 FIXES = {
     "fixed": [
         (CALC, "FRAIS_300_FRS = DecimalUtils.of(0.0800, 4);  // 8%", "FRAIS_300_FRS = DecimalUtils.of(0.0300, 4);  // 3%"),
@@ -74,8 +59,6 @@ def build_dir(variant: str, sandbox) -> Path:
 
 
 def build(variant: str, env: dict, sandbox=None) -> Path:
-    """The port's jar for this variant, built once per (port commit, fixes) under cache/build/<variant>/;
-    the local variant is rebuilt from port/ on every run, in <sandbox>/build/."""
     origin = LOCAL if variant == "local" else PORT
     if not (origin / "pom.xml").is_file():
         sys.exit(f"the Java port is not in {origin}; run: python fetch.py" + (" --local" if variant == "local" else ""))

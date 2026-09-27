@@ -1,5 +1,3 @@
-"""The whole loop on the test fixture examples/unitsum/ with real Java runs: both ports weighed, gate exit
-codes, accept, explain."""
 import json
 import unittest
 
@@ -45,7 +43,6 @@ class Loop(unittest.TestCase):
         self.assertIn("COMPUTE OUT-TOTAL-LB = OUT-TOTAL-KG * 2.20462", e.stdout)
         self.assertIn("= 3.270 * 2.20462 = 7.2091074", e.stdout)
         self.assertIn("port wrote               7.21   matches half-up (ROUNDED)", e.stdout)
-        # a person signs the three differences; the port then balances with 3 accepted
         for key in ("A10001", "B20003", "C30005"):
             a = self.sb.tare("accept", "--key", key, "--by", "Test Owner", "--reason", "self-test")
             self.assertEqual(a.returncode, 0, a.stdout + a.stderr)
@@ -53,7 +50,6 @@ class Loop(unittest.TestCase):
         self.assertEqual(w.returncode, 0, w.stdout)
         self.assertIn("weigh: 5 of 5 records balance (3 accepted differences)", w.stdout)
         self.assertEqual(self.sb.gate(COMMIT).returncode, 0)
-        # the exact port writes the answer key's own values, which also pass
         self.sb.use_port("exact")
         self.assertEqual(self.weigh().returncode, 0)
 

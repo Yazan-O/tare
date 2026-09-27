@@ -1,21 +1,3 @@
-"""Fetch the third-party pieces of this case into cache/ (git-ignored) at pinned commits.
-
-The COBOL and the Java port are under CeCILL-2.1; they are fetched at run time and never committed to this
-MIT repository. Only the built-property ("bati") calculator of 2018 is used:
-
-  cache/cobol/   CTXTA3B.cob, EFITA3B8.cob, EFITAUX2.cob and the copybooks they include, exported from
-                 etalab/taxe-fonciere @ COBOL_COMMIT (nothing else from that repository is checked out)
-  cache/repos/omnipede/   omnipede/taxe-fonciere @ JAVA_COMMIT; the port is its taxe-fonciere-java/ folder
-
-  python fetch.py          the two repositories (the demo input under input/ is committed)
-  python fetch.py --local  also port/: the port under test, a clone of the Java port's repository at
-                           JAVA_COMMIT on branch LOCAL_BRANCH, a git repository of its own (git-ignored here,
-                           so its CeCILL code and the repair committed in it never enter this repository),
-                           with Tare's git hooks installed in it
-  python fetch.py --reset-local   port/ back at JAVA_COMMIT, discarding its changes and commits
-  python fetch.py --full   also REI 2018 from data.gouv.fr, converted to CSV, and the national case under
-                           full/ (35,389 communes): cd full && python -m tare reproduce
-"""
 import argparse
 import json
 import shutil
@@ -33,12 +15,10 @@ JAVA_REPO = "https://github.com/omnipede/taxe-fonciere.git"
 JAVA_COMMIT = "5124d1c07942e362922663e52dd8f2e641fb0e47"
 LOCAL = HERE / "port"
 LOCAL_BRANCH = "tare-local"
-# The built-property path of 2018: the router, the calculator, the rate reader, and their copybooks.
 COBOL_FILES = ["CTXTA3B.cob", "EFITA3B8.cob", "EFITAUX2.cob",
                "XCOMBAT.cpy", "XRETB.cpy", "XBASEB.cpy", "XCOTB.cpy",
                "XBXTDAN.cpy", "XBXTDDIR.cpy", "XBXTDCOM.cpy", "XBXTDSR.cpy",
                "T800.cpy", "T84D.cpy", "T84C.cpy", "T84R.cpy", "LICENSE"]
-# REI 2018, the commune-level local-tax statistics published by DGFiP (Licence Ouverte 2.0).
 REI_DATASET = ("https://www.data.gouv.fr/datasets/impots-locaux-fichier-de-recensement-des-elements-"
                "dimposition-a-la-fiscalite-directe-locale-rei-4")
 REI_URL = ("https://data.economie.gouv.fr/api/v2/catalog/datasets/impots-locaux-fichier-de-recensement-des-"
@@ -83,9 +63,6 @@ def fetch_java():
 
 
 def fetch_local(reset=False):
-    """port/: a clone of the Java port's repository (from cache/repos/omnipede, origin set to JAVA_REPO) on
-    branch LOCAL_BRANCH at JAVA_COMMIT, with the gate's git hooks. An existing clone is left as it is unless
-    reset is set."""
     if (LOCAL / ".git").is_dir() and not reset:
         head = git("rev-parse", "--short", "HEAD", cwd=LOCAL).decode().strip()
         print(f"  port/ exists (HEAD {head}); left as it is (--reset-local puts it back at {JAVA_COMMIT[:7]})")
@@ -138,7 +115,6 @@ def fetch_rei():
 
 
 def write_full_case():
-    """full/: the same case on every commune; paths in tare.json point back to this folder."""
     full = HERE / "full"
     subprocess.run([sys.executable, str(HERE / "build_input.py"), str(REI_CSV), "--out", str(full / "input")],
                    check=True)

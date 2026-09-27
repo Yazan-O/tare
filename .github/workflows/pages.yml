@@ -1,5 +1,4 @@
 name: pages
-# Publishes site/dist (the parity receipt) to GitHub Pages. Settings > Pages > Source: GitHub Actions.
 on:
   push:
     branches: [main]

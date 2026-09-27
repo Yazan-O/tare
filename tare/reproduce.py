@@ -1,14 +1,3 @@
-"""python -m tare reproduce | check <side>: rerun the answer key and every declared side, weigh each one.
-
-reproduce  answer key (if cobc), every side in tare.json's `expected`, scoreboard; exit 0 when every
-           verdict equals the expected one. No side declared, or a side with neither a run nor a committed
-           fixture, is a failure: a reproduce that weighs nothing proves nothing.
-check      answer key (if cobc), one side, ledger as Markdown to $GITHUB_STEP_SUMMARY; exit 0 balanced,
-           1 red, 2 when the answer key or the port run fails.
-A missing toolchain never stops a run: the committed fixture is used and labelled RECORDED. An unsound answer
-key (committed or fresh; see answerkey.soundness) stops both before any side is weighed.
---record (reproduce) copies each fresh side run to its committed fixture, fixtures/sides/<side>/records.json.
-"""
 import shutil
 import sys
 from pathlib import Path
@@ -19,9 +8,6 @@ FRESH = "work/answer_key"
 
 
 def answer_key(root: Path, offline=False) -> tuple:
-    """(ok, one-line status, sound). Checks the committed answer key's soundness, then rebuilds the answer key
-    into work/answer_key when cobc is present and compares it with the committed one. sound is False when the
-    committed or the fresh answer key is unsound: nothing may be weighed against it."""
     committed = root / config.ANSWER_DIR
     if (committed / config.RECORDS).is_file():
         problems = answerkey.soundness(config.load_config(root), committed)
@@ -49,7 +35,6 @@ def answer_key(root: Path, offline=False) -> tuple:
 
 
 def run_side(root: Path, side: str, offline=False) -> dict:
-    """Run one side, or fall back to its committed fixture. Returns {path, source, note}."""
     fixture = sides.fixture_path(root, side)
     if offline:
         return {"path": fixture, "source": "recorded", "note": "--offline"}
@@ -197,7 +182,6 @@ def reset(root: Path) -> int:
 
 
 def fixture_states(root: Path) -> list:
-    """[(summary, label)] for every committed side fixture, weighed against the committed answer key."""
     cfg = config.load_config(root)
     a = records.load_side(root / config.ANSWER_KEY)
     out = []

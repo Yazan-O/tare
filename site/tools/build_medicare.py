@@ -1,7 +1,3 @@
-"""Write dist/data/medicare.js: act two's numbers, each with its source (medicare_facts.py).
-
-Usage (from the repository root): python site/tools/build_medicare.py
-"""
 import json
 from pathlib import Path
 

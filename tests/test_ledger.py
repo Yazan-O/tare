@@ -1,4 +1,3 @@
-"""The ledger on the test fixture's records, accepted differences, and explain's arithmetic."""
 import copy
 import unittest
 from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
@@ -44,7 +43,7 @@ class Weigh(unittest.TestCase):
         p["files"]["totals"].append(dict(gone, id="Z99999"))
         s = ledger.weigh(self.a, p, CFG)["summary"]
         self.assertEqual((s["missing"], s["extra"], s["records_differ"], s["verdict"]), (1, 1, 2, "red"))
-        self.assertEqual(s["numeric"]["totals"]["total_lb"]["net"], "0.00")  # -10.09 missing, +10.09 extra
+        self.assertEqual(s["numeric"]["totals"]["total_lb"]["net"], "0.00")
 
     def test_port_that_wrote_nothing(self):
         p = dict(self.ok, files={"totals": []})
@@ -56,7 +55,7 @@ class Weigh(unittest.TestCase):
 
     def test_decimal_equality_not_text(self):
         p = copy.deepcopy(self.ok)
-        p["files"]["totals"][0]["total_kg"] = "4.58"  # same number, other scale
+        p["files"]["totals"][0]["total_kg"] = "4.58"
         self.assertEqual(ledger.weigh(self.a, p, CFG)["summary"]["verdict"], "balanced")
 
 
@@ -113,7 +112,7 @@ class ExplainMath(unittest.TestCase):
         self.assertEqual(explain.exact_decimal(Fraction(1, 12)), "0.08(3)")
 
     def test_truncate_and_half_up(self):
-        f = Fraction(Decimal("4.580")) * Fraction(Decimal("2.20462"))  # 10.0971596
+        f = Fraction(Decimal("4.580")) * Fraction(Decimal("2.20462"))
         self.assertEqual(str(explain._to_scale(f, 2, ROUND_DOWN)), "10.09")
         self.assertEqual(str(explain._to_scale(f, 2, ROUND_HALF_UP)), "10.10")
         self.assertEqual(str(explain._to_scale(-f, 2, ROUND_DOWN)), "-10.09")
@@ -124,7 +123,7 @@ class ExplainMath(unittest.TestCase):
         vals = {"A": Fraction(3), "B": Fraction(1, 2)}
         ev = lambda s: explain._Expr(explain.TOKEN.findall(s), vals.__getitem__).expr()
         self.assertEqual(ev("A * (B + 1) / 2"), Fraction(9, 4))
-        self.assertEqual(ev("-A ** 2 + 0.5"), Fraction(19, 2))  # COBOL: unary minus binds before **
+        self.assertEqual(ev("-A ** 2 + 0.5"), Fraction(19, 2))
 
     def test_receivers(self):
         st = lambda verb, text: {"verb": verb, "tokens": explain.TOKEN.findall(text)}
@@ -153,7 +152,7 @@ class ExplainMath(unittest.TestCase):
             kg = explain.explain(sb.root, key="A10001", field="total_kg", port="local")
             self.assertIn("ADD WS-LINE-KG TO OUT-TOTAL-KG", kg)
             self.assertIn("PIC 9(08)V999", kg)
-            self.assertNotIn("4. The arithmetic", kg)  # equal values: no reconstruction
+            self.assertNotIn("4. The arithmetic", kg)
         finally:
             sb.close()
 

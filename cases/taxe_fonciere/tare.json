@@ -1,5 +1,5 @@
 {
-  "about": "French property tax (taxe fonciere), 2018 built-property calculator of the DGFiP, published by Etalab: CTXTA3B routes the bill to EFITA3B8, which reads the rates through EFITAUX2. Input: one bill per commune of the Ain departement, built from REI 2018 (see README.md).",
+  "about": "French property tax (taxe fonciere), 2018 built-property calculator of the DGFiP, published by Etalab: CTXTA3B routes the bill to EFITA3B8, which reads the rates through EFITAUX2. Input: one bill per commune of the Ain departement, built from REI 2018.",
   "program": "EFITA3B8",
   "cobol": {
     "sources": [

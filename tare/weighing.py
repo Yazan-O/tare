@@ -1,4 +1,3 @@
-"""One weigh, as the CLI and the MCP server both run it: ledger + record files + scale image."""
 import datetime
 import json
 from pathlib import Path
@@ -23,17 +22,6 @@ def _is_port_under_test(root: Path, port: str, port_path: Path) -> bool:
 
 
 def run(root: Path, port: str, answer=None, render=True) -> dict:
-    """Weigh `port` (a side name or a path to records.json) against the answer key.
-
-    Writes .tare/weigh_<side>.json (the record the gate reads), .tare/last_weigh.json (a copy of the
-    most recent record, for display), .tare/ledger.md and .tare/scale.png. Returns the record.
-    A declared side with no work/runs/<side>/records.json is weighed from its committed fixture. Any weigh
-    of a committed fixture carries the label in the record's 'recorded' field.
-
-    The port under test ('local') never falls back, is always weighed by name against the pinned answer
-    key, and is rerun first (tare/localport.py) when its last run's provenance is missing or stale, so
-    the record always describes the current sources. The record stores that provenance for the gate.
-    """
     cfg = config.load_config(root)
     port_path = config.resolve_port_path(root, port)
     run_log = None

@@ -1,4 +1,3 @@
-"""reproduce, check and reset on the test fixture; the recorded-fixture fallbacks; the scale; the contract."""
 import json
 import subprocess
 import sys
@@ -45,7 +44,7 @@ class ReproduceCommand(unittest.TestCase):
     def test_unsound_answer_key_stops_before_any_weigh(self):
         dat = self.sb.root / "fixtures" / "answer_key" / "totals.dat"
         data = bytearray(dat.read_bytes())
-        data[40 + 6] = ord("X")  # record 2, the first digit of count PIC 9(03)
+        data[40 + 6] = ord("X")
         dat.write_bytes(bytes(data))
         r = self.sb.tare("reproduce", "--offline")
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
@@ -81,7 +80,6 @@ class ReproduceCommand(unittest.TestCase):
         self.assertIn("reproduce: FAIL", r.stdout)
 
     def test_repository_root_opens_on_the_hero_case(self):
-        """From the repository root (no tare.json there), reproduce weighs cases/taxe_fonciere."""
         root = Path(__file__).resolve().parents[1]
         env = self.sb.env()
         r = subprocess.run([sys.executable, "-m", "tare", "reproduce", "--offline"], cwd=root, env=env,
@@ -105,7 +103,6 @@ class ReproduceCommand(unittest.TestCase):
         self.assertEqual(self.sb.tare("check", "local", "--offline").returncode, 2)
 
     def test_command_runner_side(self):
-        """A side whose runner is a command: it writes <out>/totals.dat and Tare decodes it."""
         d = self.sb.root / "ports" / "copy"
         d.mkdir(parents=True)
         (d / "run.py").write_text(
@@ -205,7 +202,7 @@ class Contract(unittest.TestCase):
         sb = Sandbox(with_port=False)
         try:
             cfg = sb.cfg()
-            cfg["layouts"]["TOTAL"]["fields"][3].update(length=6, type="COMP-3")  # total_kg, 3 decimals
+            cfg["layouts"]["TOTAL"]["fields"][3].update(length=6, type="COMP-3")
             (sb.root / "tare.json").write_text(json.dumps(cfg), encoding="utf-8")
             text = contract.render(sb.root)
         finally:

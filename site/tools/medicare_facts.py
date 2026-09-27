@@ -1,8 +1,3 @@
-"""Act two's numbers, each read from the Medicare hospice case's committed fixtures (or quoted from its primary
-source), with where it came from. Used by build_medicare.py (the page) and deck/build.py (the slides).
-
-  python site/tools/medicare_facts.py      print every fact and its source
-"""
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -16,8 +11,6 @@ SIDES = ("cms-java", "java-ai", "java-ai-fixed")
 EXAMPLES = (("C00002", "total", "cms-java"), ("C00082", "high", "java-ai"),
             ("C00033", "rtc", "java-ai"), ("C00408", "pay_chc", "java-ai"))
 MEDPAC_URL = "https://www.medpac.gov/wp-content/uploads/2026/03/Mar26_Ch10_MedPAC_Report_To_Congress_SEC.pdf"
-# Quoted, not measured: MedPAC, March 2026 report to Congress, chapter 10 (read at the source 2026-09-26,
-# _runs/2026-09-26_medicare_case/REPORT.md, deliverable 7).
 MEDPAC = {"medpac_hospice_2024": ("$28.3 billion", "MedPAC March 2026 ch. 10: 'In 2024, Medicare's hospice ... paid "
                                   "about $28.3 billion for hospice services' " + MEDPAC_URL),
           "medpac_rhc_share": ("98.8%", "MedPAC March 2026 ch. 10: routine home care is 98.8 percent of Medicare-covered "
@@ -25,7 +18,6 @@ MEDPAC = {"medpac_hospice_2024": ("$28.3 billion", "MedPAC March 2026 ch. 10: 'I
 
 
 def facts() -> dict:
-    """{key: (value, source)}"""
     F = {}
     cfg = config.load_config(CASE)
     ak_path = CASE / "fixtures" / "answer_key" / "records.json"

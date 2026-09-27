@@ -1,9 +1,3 @@
-"""python -m tare contract: write the port contract for the replay skill from tare.json's layouts.
-
-The contract goes to .bob/skills/replay/PORT_CONTRACT.md in the nearest .bob/ at or above the case root
-(or --out). It states the command line, every input and output file with its layout, the sign encoding and
-how the weigh judges the port. Everything in it is generated from tare.json; edit tare.json, not the file.
-"""
 from pathlib import Path
 
 from . import config

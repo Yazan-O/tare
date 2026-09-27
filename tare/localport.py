@@ -1,17 +1,3 @@
-"""Build and run the port under test (side 'local') in a sandbox, and record what produced its output.
-
-Threat model: the gate stops an agent's honest mistakes and casual workarounds inside Bob; the CI check on
-a clean runner is the backstop against deliberate tampering. Within that model:
-- the port runs with its working directory set to work/sandbox/local/, which holds only copies of the
-  input files (input/) and the compiled classes (classes/), so a relative path such as
-  fixtures/answer_key/records.json does not reach the answer key. A port that opens an absolute path, or
-  climbs out with ../, is deliberate tampering and out of scope here.
-- the port writes <out>/<file>.dat for every output file in tare.json, in the original's fixed-width
-  format; Tare decodes them with the same layouts as the answer key into records.json.
-- every run writes work/runs/local/provenance.json: the sha256 of each port source (port/**/*.java and
-  port/MAIN), of each input file and of the records.json it produced. weigh reruns the port when the
-  provenance is missing or stale, so a weigh always describes the current sources.
-"""
 import datetime
 import glob
 import json
@@ -26,7 +12,7 @@ from pathlib import Path
 from . import config, records
 
 SIDE = config.PORT_SIDE
-SOURCES = config.PORT_SOURCES  # pinned in code; tare.json cannot change them
+SOURCES = config.PORT_SOURCES
 INPUT = config.INPUT
 OUT = "work/runs/local"
 SANDBOX = "work/sandbox/local"
@@ -52,7 +38,6 @@ def _version_tuple(v: str):
 
 
 def jdk_version(home: Path) -> str:
-    """The JDK's version string: JAVA_VERSION from <home>/release, else `javac -version`."""
     rel = Path(home) / "release"
     if rel.is_file():
         m = re.search(r'^JAVA_VERSION="([^"]+)"', rel.read_text(encoding="utf-8", errors="replace"), re.M)
@@ -68,7 +53,6 @@ def jdk_version(home: Path) -> str:
 
 
 def jdk_major(home: Path) -> int:
-    """21 for '21.0.12.1', 8 for '1.8.0_481', 0 when unknown."""
     t = _version_tuple(jdk_version(home))
     if not t:
         return 0
@@ -76,11 +60,6 @@ def jdk_major(home: Path) -> int:
 
 
 def find_jdk(env=None, min_major=MIN_MAJOR):
-    """(home, major, version) of a JDK >= min_major, or None.
-
-    Order: JAVA_HOME, then the javac on PATH, then the newest JDK under the common install roots
-    (Windows: Eclipse Adoptium, Java, Microsoft, Zulu, Corretto; Linux and macOS: /usr/lib/jvm and friends).
-    """
     env = os.environ if env is None else env
 
     def ok(home):
@@ -113,7 +92,6 @@ def input_hashes(root: Path, input_rel=INPUT) -> dict:
 
 
 def write_provenance(root: Path, out_dir: Path, jdk="", main_class="", input_rel=INPUT) -> dict:
-    """Record the sources, inputs and output of the run that just wrote out_dir/records.json."""
     out = Path(out_dir) / config.RECORDS
     prov = {
         "runner": "tare.localport",
@@ -140,7 +118,6 @@ def read_provenance(root: Path):
 
 
 def staleness(root: Path):
-    """None when work/runs/local/records.json was produced by the current sources and inputs, else why not."""
     out = root / OUT / config.RECORDS
     prov = read_provenance(root)
     if prov is None:
@@ -162,9 +139,6 @@ def _tail(text: str, n=30) -> str:
 
 def build_and_run(root: Path, src_rel: str, sandbox_rel: str, out_rel: str, side: str, command: str,
                   input_rel=INPUT):
-    """Compile <src_rel>/**/*.java, run <src_rel>/MAIN's class in the sandbox with --input input --out out,
-    copy each output <file>.dat to out_rel and decode them into out_rel/records.json.
-    Returns (records.json path, log text, jdk description, main class). Raises PortRunError with the log tail."""
     log = []
     src = root / src_rel
     out = root / out_rel
@@ -230,8 +204,6 @@ def build_and_run(root: Path, src_rel: str, sandbox_rel: str, out_rel: str, side
 
 
 def run_command(root: Path, runner: str, side: str, out_rel: str, input_rel=INPUT, extra=()):
-    """Run a side's runner command from the case root with --input <input_rel> --out <out_rel> [extra], and
-    decode what it wrote into out_rel/records.json. Returns (records.json path, log). Raises PortRunError."""
     argv = shlex.split(str(runner))
     if not argv:
         raise PortRunError(f"side {side}: empty runner")
@@ -258,10 +230,6 @@ def run_command(root: Path, runner: str, side: str, out_rel: str, input_rel=INPU
 
 
 def run(root: Path, input_rel=INPUT, out_rel=OUT):
-    """Run the port under test and write its provenance. Returns (records.json path, log text).
-    With a runner declared in tare.json sides.local, that runner builds and runs it from the case root with
-    --input work/sandbox/local/input (copies of the input files), --out work/runs/local and
-    --sandbox work/sandbox/local (its build and scratch folder). Otherwise port/ is compiled with javac."""
     runner = config.local_entry(config.load_config(root)).get("runner")
     if runner:
         if not any(k.endswith(".java") for k in config.hash_sources(root, SOURCES)):

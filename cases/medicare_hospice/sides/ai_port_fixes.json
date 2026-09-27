@@ -1,5 +1,5 @@
 {
-  "about": "The three repairs to the AI-assisted port, as edits by file and line number. Each edit names the SHA-256 of the line it expects (the line's text without its line ending, UTF-8); sides/fix_port.py refuses to change anything unless every expected line is there. No text of the port is stored here: the port has no licence and is fetched at run time into cache/, never committed. README.md, 'What differs, and why', gives the COBOL behind each repair.",
+  "about": "The three repairs to the AI-assisted port, as edits by file and line number. Each edit names the SHA-256 of the line it expects (the line's text without its line ending, UTF-8); sides/fix_port.py refuses to change anything unless every expected line is there. No text of the port is stored here: the port has no licence and is fetched at run time into cache/, never committed.",
   "port": "rcaran/hospice-cms-pricer-java",
   "commit": "655847671859b67a188c5dae6a86c45a74bfa046",
   "edits": [

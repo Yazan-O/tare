@@ -1,4 +1,3 @@
-"""explain's copybook expansion applies COPY ... REPLACING: pseudo-text, literals, words, LEADING and TRAILING."""
 import json
 import tempfile
 import unittest
@@ -75,7 +74,7 @@ class CopyReplacing(unittest.TestCase):
     def test_leading_and_trailing(self):
         self.assertEqual(self.entry("NEW-CODE")["pic"], "X(02)")
         self.assertEqual(self.entry("PRICE-AMOUNT")["pic"], "9(05)V99")
-        self.assertIn("OLDER", self.entries)  # 'OLD-' is not a leading part of OLDER
+        self.assertIn("OLDER", self.entries)
 
     def test_word_replaces_whole_words_only(self):
         self.assertEqual(self.entry("ITEM-QTY")["pic"], "9(03)")
@@ -93,7 +92,7 @@ class CopyReplacing(unittest.TestCase):
         name, rules = explain.copy_statement("COPY X REPLACING ==A B== BY ====  'L' BY W OF G  C BY D.")
         self.assertEqual(name, "X")
         self.assertEqual(rules, [(None, ["A", "B"], ""), (None, ["'L'"], "W OF G"), (None, ["C"], "D")])
-        self.assertIsNone(explain.copy_statement("COPY X REPLACING ==A== BY"))  # the statement goes on
+        self.assertIsNone(explain.copy_statement("COPY X REPLACING ==A== BY"))
         with self.assertRaises(ValueError):
             explain.copy_statement("COPY X REPLACING ==A== ==B==.")
 

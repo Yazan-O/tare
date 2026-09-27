@@ -1,11 +1,7 @@
-"""Tare MCP server over stdio: newline-delimited JSON-RPC 2.0, stdlib only. Logs go to stderr.
-
-Tools: run_mainframe, run_port, weigh, explain.
-"""
 import sys
 from pathlib import Path
 
-if __name__ == "__main__" and not __package__:  # run as a file path: python <repo>/tare/mcp_server.py
+if __name__ == "__main__" and not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from tare.mcp_server import main
     sys.exit(main())
@@ -104,7 +100,6 @@ def _tail(s: str, n=40) -> str:
 
 
 def _bad_side(root: Path, side):
-    """An error message when `side` is not one of the known sides (never a path), else None."""
     names = known_sides(root)
     if isinstance(side, str) and side in names:
         return None
@@ -210,7 +205,6 @@ HANDLERS = {"run_mainframe": tool_run_mainframe, "run_port": tool_run_port,
 
 
 def handle(msg: dict, root: Path):
-    """Returns a response dict, or None for a notification."""
     mid = msg.get("id")
     method = msg.get("method")
     params = msg.get("params") or {}
@@ -255,7 +249,6 @@ def _invalid(why):
 
 
 def _safe_handle(msg, root: Path):
-    """handle() for one message; a non-object gets -32600 and an exception -32603, never a crash."""
     if not isinstance(msg, dict):
         return _invalid(f"expected a JSON object, got {type(msg).__name__}")
     try:

@@ -1,13 +1,3 @@
-"""The evidence for one field of one record: both values, the COBOL statements that write it, its PIC and
-USAGE, and, for a numeric difference, the exact arithmetic when the statement can be recomputed.
-
-Everything is read from the program sources and copybooks named in tare.json (fixed-format COBOL: code in
-columns 8-72, a '*' or '/' in column 7 marks a comment). A statement writes the field when the field or one
-of the groups holding it is a receiving item of MOVE ... TO, COMPUTE ... =, ADD ... TO/GIVING, SUBTRACT ...
-FROM/GIVING, MULTIPLY ... BY/GIVING or DIVIDE ... INTO/GIVING. A COMPUTE into the field is recomputed exactly
-(in fractions) when every operand is a literal or a field of the same record's layout; the result is shown
-truncated and rounded half-up to the field's decimal places, beside what each side wrote.
-"""
 import re
 from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 from fractions import Fraction
@@ -28,11 +18,7 @@ WRITERS = {"MOVE", "COMPUTE", "ADD", "SUBTRACT", "MULTIPLY", "DIVIDE"}
 STOP_WORDS = {"ON", "NOT", "SIZE", "ERROR", "REMAINDER", "GIVING", "ROUNDED", "OF", "IN", "=", "EQUAL"}
 TOKEN = re.compile(r"'[^']*'?|\"[^\"]*\"?|\d+\.\d+|\.\d+|\d+|[A-Za-z0-9][A-Za-z0-9-]*|\*\*|[*/+\-()=:.,]")
 COPY = re.compile(r"(?<![A-Za-z0-9_-])COPY\s+['\"]?([A-Za-z0-9][A-Za-z0-9_-]*)['\"]?", re.I)
-# Text words of copybook text, as COPY ... REPLACING compares them: a literal, a word (which may start with '-',
-# so that 'X'-NAME and :X:-NAME split into a literal or ':X:' and '-NAME'), or one other character; commas and
-# semicolons are separators.
 RTOKEN = re.compile(r"'[^']*'?|\"[^\"]*\"?|[A-Za-z0-9_-]+|[^\s,;]")
-# Tokens of a COPY statement: pseudo-text, literals, the ending period, words, parentheses.
 CTOKEN = re.compile(r"==.*?==|'[^']*'|\"[^\"]*\"|\.(?=\s|$)|[^\s'\".,;=()]+|[()]|\S", re.S)
 DATA_ENTRY = re.compile(r"^\s*(\d{1,2})\s+([A-Za-z0-9][A-Za-z0-9-]*)(.*)$")
 PIC = re.compile(r"\bPIC(?:TURE)?\s+(?:IS\s+)?(\S+?)(?=\.?(?:\s|$))", re.I)
@@ -42,7 +28,6 @@ SIGN = re.compile(r"\bSIGN\s+(?:IS\s+)?(LEADING|TRAILING)(\s+SEPARATE(?:\s+CHARA
 
 
 def _code(line: str):
-    """Columns 8-72 of a fixed-format line, or None for a comment line."""
     if len(line) > 6 and line[6] in "*/":
         return None
     return line[7:72] if len(line) > 7 else ""
@@ -62,13 +47,10 @@ def _copybook(root: Path, cfg: dict, name: str):
 
 
 def _key(tok: str) -> str:
-    """Words compare in any letter case, literals exactly."""
     return tok if tok[:1] in "'\"" else tok.upper()
 
 
 def _operand(toks: list, i: int) -> tuple:
-    """(text, next index) of one REPLACING operand: ==pseudo-text==, a literal, or an identifier
-    (a word, OF/IN qualifiers, a parenthesized subscript)."""
     t = toks[i]
     if len(t) >= 4 and t.startswith("==") and t.endswith("=="):
         return t[2:-2].strip(), i + 1
@@ -84,9 +66,6 @@ def _operand(toks: list, i: int) -> tuple:
 
 
 def copy_statement(text: str):
-    """Parse 'COPY name [OF|IN library] [SUPPRESS] [REPLACING ...].' into (name, rules), or None when the text
-    does not yet hold the statement's ending period. A rule is (mode, the words to match, the replacement
-    text) with mode None, 'LEADING' or 'TRAILING'. Raises ValueError on a REPLACING phrase it cannot read."""
     if text.count("==") % 2:
         return None
     toks = CTOKEN.findall(text)
@@ -114,11 +93,6 @@ def copy_statement(text: str):
 
 
 def replace_copy(codes: list, rules) -> list:
-    """Apply COPY ... REPLACING rules to a copybook's code lines (None for a comment line), as the compiler
-    does: the text words are scanned left to right; at each word the first rule that matches replaces it
-    (a match may span lines; comment lines and separators are skipped), and replaced text is not rescanned.
-    LEADING/TRAILING replace the leading/trailing part of one word. The result has the same number of lines,
-    so file:line stays true to the copybook."""
     if not rules:
         return codes
     toks = [(n, m.start(), m.end(), m.group(0)) for n, c in enumerate(codes) if c is not None
@@ -154,9 +128,6 @@ def replace_copy(codes: list, rules) -> list:
 
 
 def data_entries(root: Path, cfg: dict) -> list:
-    """Every data description entry of every program source, copybooks expanded in place with their
-    COPY ... REPLACING applied: [{level, name, pic, usage, sign, file, line, groups}] with groups = names of
-    the enclosing groups."""
     out = []
     for src in (cfg.get("cobol") or {}).get("sources") or []:
         stack = []
@@ -219,7 +190,6 @@ def data_entries(root: Path, cfg: dict) -> list:
 
 
 def _tokens(root: Path, cfg: dict):
-    """(token, file, line) for the procedure division of every program source."""
     for src in (cfg.get("cobol") or {}).get("sources") or []:
         path = root / src
         rel = config.rel_to(root, path)
@@ -237,7 +207,6 @@ def _tokens(root: Path, cfg: dict):
 
 
 def statements(root: Path, cfg: dict) -> list:
-    """[{verb, tokens, file, start, end}] for every statement in the procedure division."""
     out, cur = [], None
     for tok, rel, n in _tokens(root, cfg):
         up = tok.upper()
@@ -264,7 +233,6 @@ def statements(root: Path, cfg: dict) -> list:
 
 
 def _names(tokens) -> list:
-    """Receiving data names in a token run: qualifiers (OF/IN x), subscripts and ROUNDED skipped."""
     out, depth, skip = [], 0, False
     for t in tokens:
         up = t.upper()
@@ -317,7 +285,6 @@ def writers_of(root: Path, cfg: dict, names: set) -> list:
 
 
 def pic_scale(pic: str) -> int:
-    """Digits after the implied decimal point V: 'S9(09)V99' -> 2, 'S9(04)V9(3)' -> 3."""
     if not pic or "V" not in pic.upper():
         return 0
     frac = pic.upper().split("V", 1)[1]
@@ -328,7 +295,6 @@ def pic_scale(pic: str) -> int:
 
 
 def exact_decimal(fr: Fraction) -> str:
-    """Exact decimal expansion; a repeating part is shown in parentheses, e.g. 1.2(3)."""
     sign = "-" if fr < 0 else ""
     fr = abs(fr)
     whole, rem = divmod(fr.numerator, fr.denominator)
@@ -347,7 +313,6 @@ def exact_decimal(fr: Fraction) -> str:
 
 
 def _to_scale(fr: Fraction, scale: int, mode) -> Decimal:
-    """Exact truncation toward zero (ROUND_DOWN) or half away from zero (ROUND_HALF_UP), done on the fraction."""
     n = abs(fr) * 10 ** scale
     units = int(n) if mode == ROUND_DOWN else int(n + Fraction(1, 2))
     units = -units if fr < 0 else units
@@ -355,7 +320,6 @@ def _to_scale(fr: Fraction, scale: int, mode) -> Decimal:
 
 
 class _Expr:
-    """Recursive descent over a COMPUTE expression; data names resolve through `value`."""
 
     def __init__(self, tokens, value):
         self.t, self.i, self.value = [x for x in tokens if x != ","], 0, value
@@ -416,7 +380,6 @@ class _Expr:
 
 
 def expression(st: dict):
-    """The tokens after '=' in a COMPUTE statement, up to ON SIZE ERROR."""
     ups = [t.upper() for t in st["tokens"]]
     i = next((k for k, t in enumerate(ups) if t in ("=", "EQUAL")), None)
     if i is None:
@@ -430,7 +393,6 @@ def expression(st: dict):
 
 
 def _pick(answer: dict, port, file: str, key, field, cfg: dict, accepted):
-    """(record key, field, answer record, port record) chosen from the arguments or the first difference."""
     lay = config.layout_for(cfg, file)
     a_recs = (answer.get("files") or {}).get(file, [])
     p_recs = (port or {}).get("files", {}).get(file, []) if port else []
@@ -598,7 +560,6 @@ def explain(root: Path, file=None, key=None, field=None, port=None, answer=None)
 
 
 def _span(ref: str):
-    """'dir/file.cob:99-104' -> ('dir/file.cob', 99, 104); 'x:7' -> ('x', 7, 7)."""
     path, _, lines = str(ref).rpartition(":")
     a, _, b = lines.partition("-")
     if not path or not a.isdigit() or (b and not b.isdigit()):
@@ -607,7 +568,6 @@ def _span(ref: str):
 
 
 def _quote(base: Path, ref: str, shown: str, hint: str) -> list:
-    """The lines of one file:first-last reference, read from the file under base as it is now."""
     path, a, b = _span(ref)
     f = base / path
     if not f.is_file():
@@ -618,10 +578,6 @@ def _quote(base: Path, ref: str, shown: str, hint: str) -> list:
 
 
 def known_causes(root: Path, entry: dict, field: str) -> list:
-    """The causes the side's registry (tare.json sides.<side>.causes) names for this field: for each, the
-    COBOL lines that produce the original's value and the port's own lines, both read from the sources. A
-    cause is {what, port: 'file:first-last' under the side's source folder, cobol: ['file:first-last' under
-    the case root], fields}."""
     hits = [c for c in entry.get("causes") or [] if field in (c.get("fields") or [])]
     if not hits:
         return []

@@ -1,12 +1,3 @@
-"""Write the page's data files into site/dist/ from the case's run output.
-
-  dist/data/communes.js   site/data/communes.json as one assignment (script tags work from file://)
-  dist/data/map.js        site/data/map.json, likewise
-  dist/data/run.js        the demo slice's counts (committed fixtures) and lines of the national reproduce log
-  dist/img/scale_*.png    Tare's scale images from the national weigh (cases/taxe_fonciere/full/.tare/)
-
-Usage (from site/tools): python build_site.py --log <reproduce log of the national run> --date 2026-09-26
-"""
 import argparse
 import json
 import shutil

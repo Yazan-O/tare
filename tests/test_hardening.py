@@ -1,8 +1,3 @@
-"""The gate's threat model, one class per defect of the functionality review (D1-D10).
-
-The gate stops an agent's honest mistakes and casual workarounds inside Bob; the CI check on a clean
-runner is the backstop against deliberate tampering. Each test below reproduces one bypass.
-"""
 import copy
 import json
 import os
@@ -23,7 +18,6 @@ DONE = {"tool": "attempt_completion", "input": {"result": "Port finished."}}
 
 
 def one_off():
-    """The balanced output with one field changed: A10001 total_lb 10.10 (the answer key has 10.09)."""
     doc = copy.deepcopy(load(BALANCED))
     doc["files"]["totals"][0]["total_lb"] = "10.10"
     return doc
@@ -42,7 +36,6 @@ class Base(unittest.TestCase):
 
 class D1StaleOutput(Base):
     def test_weigh_reruns_the_edited_port(self):
-        # a balanced records.json from an earlier run is on disk; the port is then broken
         self.sb.put_run("local", BALANCED)
         (self.sb.root / "port" / "X.java").write_text("class X { int broken = 1/0; }\n", encoding="utf-8")
         w = self.weigh_local()
@@ -68,7 +61,6 @@ class D1StaleOutput(Base):
         self.assertEqual(set(prov["inputs"]), {"items.dat"})
         self.assertEqual(prov["output_sha256"], rec["port_sha256"])
         self.assertEqual(self.sb.gate(COMMIT).returncode, 0)
-        # edit the port to a red one; weigh alone (no run_port) must see the new output
         self.sb.use_port("halfup")
         self.assertEqual(self.weigh_local().returncode, 1)
         self.assertEqual(self.sb.gate(COMMIT).returncode, 2)
@@ -155,18 +147,15 @@ class D3PinnedPolicy(Base):
         self.sb.git_init()
         self.sb.put_run("local", BALANCED)
         self.assertEqual(self.weigh_local().returncode, 0)
-        # Bob's Settings, "Always allow" on two tools: rewritten file, staged too
         allowed = dict(server, alwaysAllow=["weigh", "explain"])
         mcp.write_text(json.dumps({"mcpServers": {"tare": allowed}}), encoding="utf-8")
         self.assertEqual(self.sb.gate(COMMIT).returncode, 0, self.sb.gate(COMMIT).stdout)
         self.sb.git("add", ".bob/mcp.json")
         self.assertEqual(self.sb.gate(COMMIT).returncode, 0)
-        # anything else in the same file is still a change to .bob/
         mcp.write_text(json.dumps({"mcpServers": {"tare": dict(allowed, args=["other.py"])}}), encoding="utf-8")
         r = self.sb.gate(COMMIT)
         self.assertEqual(r.returncode, 2, r.stdout)
         self.assertIn(".bob/mcp.json", r.stdout)
-        # a clean working tree over a tampered index blocks as well
         mcp.write_text(json.dumps({"mcpServers": {"tare": allowed}}), encoding="utf-8")
         self.sb.git("add", ".bob/mcp.json")
         self.assertEqual(self.sb.gate(COMMIT).returncode, 0)
@@ -185,7 +174,6 @@ class D3PinnedPolicy(Base):
         r = self.sb.gate(COMMIT)
         self.assertEqual(r.returncode, 2, r.stdout)
         self.assertIn("tare.json", r.stdout)
-        # the owner's command, not a hand edit: tare.json may then differ from HEAD in 'accepted' only
         self.sb.git("checkout", "--", "tare.json")
         self.sb.put_run("local", one_off())
         self.assertEqual(self.weigh_local().returncode, 1)
@@ -237,7 +225,6 @@ class D4GitHooks(Base):
         self.assertNotEqual(c.returncode, 0, c.stdout + c.stderr)
         self.assertIn("TARE: blocked", c.stderr)
         self.assertEqual(self.sb.git("rev-list", "--count", "HEAD").stdout.strip(), "1")
-        # balanced: the same commit goes through
         self.sb.put_run("local", BALANCED)
         self.assertEqual(self.weigh_local().returncode, 0)
         c = self.sb.git("commit", "-m", "balanced port")
@@ -247,7 +234,6 @@ class D4GitHooks(Base):
 
 class D4GitHooksNoPreCommit(Base):
     def test_cherry_pick_revert_merge_refused_while_red(self):
-        """git runs no pre-commit hook for cherry-pick or revert; reference-transaction catches them."""
         self.sb.git_init()
         g = self.sb.git
         g("checkout", "-q", "-b", "topic")
@@ -269,15 +255,13 @@ class D4GitHooksNoPreCommit(Base):
             self.assertIn("TARE: blocked", r.stderr, args[0])
             for abort in ("cherry-pick", "revert", "merge"):
                 g(abort, "--abort")
-            g("reset", "-q", "--hard", before)  # a vetoed cherry-pick or revert leaves its changes staged
-        # not a branch advance: a new branch and a stash still work while red
+            g("reset", "-q", "--hard", before)
         self.assertEqual(g("branch", "side").returncode, 0)
         (self.sb.root / "port" / "Port.java").write_text("class Port { int z; }\n", encoding="utf-8")
         self.assertEqual(g("stash").returncode, 0)
 
 
 class D4CaseInSubfolder(Base):
-    """A case root below the top of the working tree: protected paths and git hooks still apply."""
 
     def test_subfolder_case(self):
         case = self.sb.root / "cases" / "one"
@@ -444,7 +428,6 @@ class D9HookLauncher(Base):
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
 
     def test_non_git_call_is_fast(self):
-        """The launcher plus the gate cost under 300 ms over a bare interpreter start (best of 3 each)."""
         read = {"tool": "read_file", "input": {"path": "x"}}
         bare, hook = [], []
         for _ in range(3):

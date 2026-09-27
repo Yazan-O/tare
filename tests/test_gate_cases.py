@@ -1,8 +1,3 @@
-"""The gate on a case that declares its own port under test (tare.json 'gate'): the Medicare hospice case.
-
-The case is copied into a throwaway git repository; its side under test is java-ai-fixed, guarded through
-sides/ai_port_fixes.json and sides/fix_port.py. Weighs read the committed fixtures, so no JDK is needed.
-"""
 import json
 import os
 import shutil
@@ -22,7 +17,7 @@ FIXES = "sides/ai_port_fixes.json"
 
 class MedicareGate(unittest.TestCase):
     def setUp(self):
-        self.dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)  # Windows may hold a handle briefly
+        self.dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.top = Path(self.dir.name)
         self.case = self.top / "cases" / "medicare_hospice"
         shutil.copytree(CASE, self.case, ignore=shutil.ignore_patterns(".tare", "cache", "work", "__pycache__"))
@@ -81,7 +76,6 @@ class MedicareGate(unittest.TestCase):
         fixes.write_bytes(before + b"\n")
         self.assertBlocked(self.gate(), f"The port changed after the last weigh ({FIXES}). "
                                         "Weigh it again with side java-ai-fixed.")
-        # a weigh of the committed fixture says nothing about the edited repair
         self.assertEqual(self.weigh().returncode, 0)
         self.assertBlocked(self.gate(), "not a run of the edited port")
         fixes.write_bytes(before)
@@ -96,9 +90,9 @@ class MedicareGate(unittest.TestCase):
 
     def test_a_commit_from_another_case_that_touches_medicare_is_gated(self):
         unitsum = self.top / "cases" / "unitsum"
-        self.assertEqual(self.gate(cwd=unitsum).returncode, 0)  # nothing touched outside unitsum
-        readme = self.case / "README.md"
-        readme.write_text(readme.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        self.assertEqual(self.gate(cwd=unitsum).returncode, 0)
+        touched = self.case / "build_input.py"
+        touched.write_text(touched.read_text(encoding="utf-8") + "\n", encoding="utf-8")
         self.assertBlocked(self.gate(cwd=unitsum), "(java-ai-fixed). Run weigh with side java-ai-fixed. "
                                                    "(case medicare_hospice)")
         self.assertEqual(self.weigh().returncode, 0)

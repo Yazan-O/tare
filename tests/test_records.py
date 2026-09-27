@@ -1,4 +1,3 @@
-"""Record decoding: every field type and sign convention, and the errors a bad file raises."""
 import unittest
 
 from tare import records
@@ -26,7 +25,7 @@ class Fields(unittest.TestCase):
     def test_overpunch_ascii_forms(self):
         self.assertEqual(records.decode_field("0000010099", S2), "100.99")
         self.assertEqual(records.decode_field("000000100y", S2), "-10.09")
-        self.assertEqual(records.decode_field("000000000p", S2), "0.00")  # no negative zero
+        self.assertEqual(records.decode_field("000000000p", S2), "0.00")
 
     def test_separate_and_none(self):
         self.assertEqual(records.decode_field("01250-", dict(S2, sign="separate")), "-12.50")
@@ -40,10 +39,10 @@ class Fields(unittest.TestCase):
             return records.decode_field(bytes.fromhex(hexs).decode("latin-1"), f)
         self.assertEqual(dec("0012345C"), "123.45")
         self.assertEqual(dec("0012345D"), "-123.45")
-        self.assertEqual(dec("0012345F"), "123.45")  # unsigned
-        self.assertEqual(dec("123B", {"name": "p", "type": "COMP-3"}), "-123")  # B is a negative sign too
-        self.assertEqual(dec("0000000D"), "0.00")  # no negative zero
-        for bad in ("0012A45C", "00123456", "0A12345C"):  # a digit nibble A-F, a sign nibble 0-9
+        self.assertEqual(dec("0012345F"), "123.45")
+        self.assertEqual(dec("123B", {"name": "p", "type": "COMP-3"}), "-123")
+        self.assertEqual(dec("0000000D"), "0.00")
+        for bad in ("0012A45C", "00123456", "0A12345C"):
             with self.assertRaises(ValueError, msg=bad):
                 dec(bad)
         self.assertTrue(records.is_numeric({"type": "COMP-3"}))

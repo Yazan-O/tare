@@ -1,16 +1,3 @@
-"""Record decoding: fixed-width files to normalized JSON records, driven by tare.json's layouts.
-
-A layout is {record_length, key: [field names], fields: [{name, offset, length, type, scale, sign, cobol}]}.
-type 'X' is text (trailing spaces dropped); '9' is unsigned digits; 'S9V9' is signed digits. scale is the
-number of implied decimal places (default 0). sign for 'S9V9': 'trailing-overpunch' (the sign in the last
-digit's zone: '{', 'A'-'I' positive and '}', 'J'-'R' negative as GnuCOBOL writes with -fsign=EBCDIC, or
-'p'-'y' negative as it writes by default), 'separate' (a trailing '+' or '-' byte) or 'none'. type 'COMP-3' is
-packed decimal (USAGE COMP-3 / PACKED-DECIMAL): two digits a byte, the sign in the last half-byte (C, A, E or F
-positive, D or B negative); a digit half-byte above 9 or a sign half-byte of 0-9 is not packed decimal.
-Numbers become decimal strings with exactly `scale` places ('-12.50', '0.00'), so money never meets a float.
-
-A records document ('records.json') is {side, command, input, files: {file: [record, ...]}, notes: [...]}.
-"""
 import json
 from decimal import Decimal
 from pathlib import Path
@@ -37,7 +24,6 @@ def fmt(d: Decimal, scale: int) -> str:
 
 
 def decode_field(raw: str, field: dict) -> str:
-    """One field's bytes (as latin-1 text) to its normalized value. Raises ValueError on bad content."""
     t = field.get("type", "X")
     if t == "X":
         return raw.rstrip(" ")
@@ -125,8 +111,6 @@ def key_of(rec: dict, layout: dict) -> tuple:
 
 
 def collect(root: Path, cfg: dict, out_dir: Path, side: str, command: str, input_rel: str, notes=None) -> Path:
-    """Decode <out_dir>/<file>.dat for every output file in tare.json into <out_dir>/records.json.
-    A file the run did not write is recorded as empty with a note, so each of its records weighs as missing."""
     out_dir = Path(out_dir)
     doc = {"side": side, "command": command, "input": input_rel, "files": {}, "notes": list(notes or [])}
     for name in config.outputs(cfg):

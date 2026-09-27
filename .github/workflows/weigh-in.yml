@@ -39,8 +39,6 @@ jobs:
       - name: Unit tests
         run: python -m unittest discover -s tests -t .
 
-      # answer key (fresh GnuCOBOL run checked against the committed fixture), every declared side run and
-      # weighed; exits non-zero unless every side gets tare.json's expected verdict
       - name: Reproduce
         working-directory: examples/unitsum
         run: python -m tare reproduce

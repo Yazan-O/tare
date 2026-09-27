@@ -1,32 +1,3 @@
-"""Build the input files of this case from public CMS tables. Run once; input/ is committed.
-
-  python build_input.py                 the committed corpus: 5,000 claims, seed 20260926
-  python build_input.py --claims 20000 --seed 7   a different corpus (not committed)
-
-Three files, all fixed-width records, all built from public tables and no person's data:
-
-  input/cbsafile.txt   7,478 rows of 80 bytes: CMS's FY2021 wage-index file CBSA2021, verbatim from the
-                       FY2021 Hospice mainframe release, each row padded to the record HOSRUN reads
-                       (HOSRUN.cbl: CR-CBSA, CR-EFFDTE, CR-WI, then filler).
-  input/provfile.txt   one 240-byte provider record: the dummy hospice provider (NPI 1234567890,
-                       CCN 341234) with an effective date of 20201001, the FY2021 start date, and the
-                       rest of the record blank. HOSDR210 reads the provider number to match the claim
-                       and the effective date to pick the record in force (HOSDR210.cbl:951-970, :976);
-                       it passes the record to nothing else (the CALL to HOSPR210 carries the bill
-                       alone, HOSDR210.cbl:990). CMS's Java and the AI port each ship their own copy of
-                       this dummy provider in their reference data, so all three pricers price the same
-                       provider number.
-  input/billfile.txt   the claims, one 315-byte BILL-315-DATA record each, the layout of HOSPR210.cbl
-                       (01 BILL-315-DATA at HOSPR210.cbl:246). The claim's own id sits in the record's
-                       trailing 8-byte FILLER, which the pricer never writes, so the answer key and
-                       every side's output carry it through and the weigh can match records by it.
-
-The claims are CONSTRUCTED FROM PUBLIC TABLES and every one is synthetic: dates inside FY2021, CBSA
-codes from CBSA2021's rows effective 20201001, revenue codes and unit limits from HOSPR210, and one
-dummy provider. The mix deliberately over-represents continuous home care (15% of claims, against
-98.8% of real hospice days being routine home care, MedPAC March 2026 ch. 10) because that is where
-the differences are; README.md gives the honest per-CHC-claim rate.
-"""
 import argparse
 import datetime as dt
 import random
@@ -43,9 +14,6 @@ RECLEN = {"cbsafile.txt": 80, "provfile.txt": 240, "billfile.txt": 315}
 
 
 def cbsa_rows() -> list:
-    """Every row of CBSA2021, in file order: the wage index for any FY2021 claim is one of them.
-
-    The file holds 7,478 rows and then a single 0x1A end-of-file byte, which is not a row."""
     rows = []
     for line in CBSA.read_bytes().decode("latin-1").splitlines():
         if line[:5].isdigit():
@@ -54,13 +22,11 @@ def cbsa_rows() -> list:
 
 
 def prov_row() -> str:
-    """One provider record: the dummy provider's number and effective date, the rest blank."""
     rec = (NPI + CCN + PROV_EFF).ljust(240)
     return rec[:240]
 
 
 def claims(n: int, seed: int) -> list:
-    """n synthetic FY2021 claims, deterministic in (n, seed): the same corpus on every machine."""
     rng = random.Random(seed)
     cbsas = sorted({l[:5] for l in cbsa_rows() if l[6:14] == "20201001"})
     out = []
@@ -76,7 +42,7 @@ def claims(n: int, seed: int) -> list:
         if rng.random() < 0.7:
             frm = m
             adm = frm - dt.timedelta(days=los)
-        else:  # claim starts on the admission day, mid-month
+        else:
             frm = m + dt.timedelta(days=rng.randint(0, 27))
             adm = frm
         last = dt.date(frm.year + frm.month // 12, frm.month % 12 + 1, 1) - dt.timedelta(days=1)
@@ -105,7 +71,6 @@ def claims(n: int, seed: int) -> list:
 
 
 def bill_record(c: dict) -> str:
-    """One claim as a 315-byte BILL-315-DATA record, revenue code in its COBOL slot."""
     groups = [" " * 32] * 4
     for rev, (dos, units) in c["lines"].items():
         groups[SLOT[rev]] = rev + " " * 5 + dos.strftime("%Y%m%d") + f"{units:07d}" + "0" * 8

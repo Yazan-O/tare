@@ -1,17 +1,3 @@
-"""python -m tare accept: a person signs an accepted difference in tare.json, with exact values.
-
-`accept --file <file> --key <key> --by "<name>" --reason "<text>" [--fields a,b] [--expect port|answer_key]`
-writes one entry {file, key, fields, expect, reason, accepted_by, date, seal} for that record:
-- --expect port (default): expect is {field: the port's current value} for each listed field (default: every
-  field of the record that differs now). The port must keep writing exactly those values; the answer key's
-  own values also pass; any other value is red.
-- --expect answer_key: the listed fields are pinned to the answer key's values (a signed review; it accepts
-  no other value).
-It prints the answer key's values, the expected values and the port's current output (rerun first when stale).
-`accept --revoke --file <file> --key <key>` removes the entry. Both write .tare/accept_seal.json, the hash of
-the tare.json they wrote, so the gate lets that tare.json (differing from HEAD in 'accepted' only) be
-committed; each entry carries its own seal, so a hand-edited entry covers nothing.
-"""
 import datetime
 import json
 from pathlib import Path

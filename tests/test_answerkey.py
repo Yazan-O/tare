@@ -1,4 +1,3 @@
-"""The answer-key runner: the generated harness, tare.json validation, and a real GnuCOBOL run."""
 import json
 import shutil
 import tempfile
@@ -25,7 +24,6 @@ NOOP = """\
 """
 PARM = "IT'S A LONGER PARM, OVER THIRTY CHARACTERS: 12345"
 
-# 12-byte records: code X(4) at 0 (primary key), group X(2) at 4 (alternate key, duplicates), qty 9(6) at 6
 ROWS = ["C003AA000030", "A001BB000010", "B002AA000020", "D004CC000040"]
 
 
@@ -107,7 +105,6 @@ def mini_case(root: Path):
     return cfg
 
 
-# 10-byte output records: id X(4), amt S9(5)V99 COMP-3 (4 bytes), qty 9(2) zoned; 4-byte input records: id
 PACK = {"record_length": 10, "key": ["id"], "fields": [
     {"name": "id", "offset": 0, "length": 4, "type": "X"},
     {"name": "amt", "offset": 4, "length": 4, "type": "COMP-3", "scale": 2},
@@ -116,7 +113,6 @@ GOOD = b"A001" + bytes.fromhex("0012345D") + b"07" + b"B002" + bytes.fromhex("99
 
 
 def packed_key(root: Path, out: bytes, echo=None, ins=b"A001B002") -> dict:
-    """An answer key folder holding out.dat and input/ins.dat, and the tare.json describing them."""
     (root / "input").mkdir(exist_ok=True)
     (root / "input" / "ins.dat").write_bytes(ins)
     (root / "out.dat").write_bytes(out)
@@ -233,7 +229,6 @@ class RealRun(unittest.TestCase):
             s = answerkey.build(root, say=lambda _: None)
             self.assertEqual(s["records"], {"master": 4, "plain": 4})
             out = root / config.ANSWER_DIR
-            # loaded in any order, unloaded in primary key order; the sequential file is copied as it was
             self.assertEqual((out / "master.dat").read_bytes(), "".join(sorted(ROWS)).encode())
             self.assertEqual((out / "plain.dat").read_bytes(), "".join(ROWS).encode())
             self.assertEqual((out / "input" / "master.dat").read_bytes(), "".join(ROWS).encode())
@@ -267,7 +262,7 @@ class RealRun(unittest.TestCase):
             self.assertIn("answer key unsound: field amt in record 3 of out is not valid packed decimal",
                           str(cm.exception))
             self.assertFalse((root / config.ANSWER_KEY).exists(), "no records.json from an unsound key")
-            packed_case(root, corrupt=False)  # the next run may replace the folder the unsound one left
+            packed_case(root, corrupt=False)
             answerkey.build(root, say=lambda _: None)
             self.assertEqual(len(records.load_side(root / config.ANSWER_KEY)["files"]["out"]), 2)
             self.assertEqual(cfg["layouts"]["PACK"]["record_length"], 10)

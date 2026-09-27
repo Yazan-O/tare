@@ -1,9 +1,3 @@
-"""The balance scale: an engraved-instrument drawing of one weigh, 768x432 PNG.
-
-Ink #1E1E1E on #FEFEFE; the only other colour is ledger red #C8102E for a difference.
-Drawn at 4x and downscaled for clean anti-aliasing. No ink within MARGIN px of the bottom edge.
-The left pan is the ORIGINAL program's output, the right pan the PORT's.
-"""
 import math
 from pathlib import Path
 
@@ -32,7 +26,6 @@ def _font(name, size, weight):
 
 
 def tilt(summary: dict) -> float:
-    """Degrees, positive = PORT (right) pan lower. Level only when balanced."""
     if summary.get("verdict") == "balanced":
         return 0.0
     total = max(summary.get("records_total") or 0, 1)
@@ -56,7 +49,6 @@ class _Pen:
                        width=round(w * S))
 
     def text(self, xy, s, font, fill=INK, track=0.0, anchor="l"):
-        """Tracked text. anchor l/c/r on x; y is the top of the line box."""
         x, y = xy
         adv = [font.getlength(ch) / S + track for ch in s]
         width = sum(adv) - (track if s else 0)
@@ -75,19 +67,15 @@ def display(side: str) -> str:
 
 
 def _clamp(x, width, lo=MARGIN, hi=W - MARGIN):
-    """Centre x for a text of this width, kept inside [lo, hi]."""
     return min(max(x, lo + width / 2), hi - width / 2)
 
 
 def _pan(pen, hx, hy, label, fonts, broken=False):
-    """Chains from the hang point, pan rim and bowl, and the label under the bowl. Returns y below label.
-    broken: the right chain is snapped (the port wrote none of the records)."""
     rim_y = hy + CHAIN
     pen.circle((hx, hy), 3.5, w=2, fill=PAPER)
     for dx in (-PAN_HALF + 6, PAN_HALF - 6):
         a, b = (hx, hy + 3.5), (hx + dx, rim_y)
         if broken and dx > 0:
-            # two loose ends with a gap between them
             pen.line([a, (a[0] + (b[0] - a[0]) * .42, a[1] + (b[1] - a[1]) * .42)], w=1.6)
             pen.line([(b[0] - 3, b[1] - 26), b], w=1.6)
         else:
@@ -95,7 +83,6 @@ def _pan(pen, hx, hy, label, fonts, broken=False):
     pen.line([(hx - PAN_HALF, rim_y), (hx + PAN_HALF, rim_y)], w=2.5)
     pen.d.arc([(hx - PAN_HALF + 4) * S, (rim_y - PAN_DEPTH) * S, (hx + PAN_HALF - 4) * S, (rim_y + PAN_DEPTH) * S],
               0, 180, fill=INK, width=round(2.5 * S))
-    # engraved hatching inside the bowl
     for k in range(-3, 4):
         x = hx + k * 14
         t = 1 - ((x - hx) / (PAN_HALF - 4)) ** 2
@@ -113,7 +100,6 @@ def wrote_nothing(summary: dict) -> bool:
 
 
 def details(summary: dict) -> list:
-    """The red line under the port's pan: 'N of M records differ', or '0 of M written'."""
     n = summary.get("records_total", 0)
     if wrote_nothing(summary):
         return [f"0 of {n} written"]
@@ -138,7 +124,6 @@ def render(summary: dict, side: str, out_path, program=None) -> Path:
     pen.line([(24, 40), (W - 24, 40)], w=1)
 
     px, py = PIVOT
-    # ground, foot and post
     pen.line([(px - 96, GROUND), (px + 96, GROUND)], w=2.5)
     for k in range(-11, 12):
         x = px + k * 8
@@ -148,7 +133,6 @@ def render(summary: dict, side: str, out_path, program=None) -> Path:
     pen.line([(px + 6, GROUND - 16), (px + 6, py + 10)], w=2.5)
     pen.line([(px - 14, py + 10), (px + 14, py + 10)], w=2.5)
 
-    # fixed index mark above the pivot; the needle leaves it as the beam tilts
     pen.line([(px, py - 44), (px, py - 34)], w=2)
     pen.line([(px - 7, py - 44), (px + 7, py - 44)], w=2)
 
@@ -158,9 +142,7 @@ def render(summary: dict, side: str, out_path, program=None) -> Path:
     def rot(dx, dy):
         return px + dx * c - dy * s_, py + dx * s_ + dy * c
 
-    # needle, perpendicular to the beam
     pen.line([rot(0, 0), rot(0, -30)], w=2)
-    # beam: a tapered outline, thick at the pivot, thin at the ends
     L = HALF_BEAM
     top = [rot(-L, -2), rot(-60, -5), rot(60, -5), rot(L, -2)]
     bot = [rot(L, 2), rot(60, 5), rot(-60, 5), rot(-L, 2)]
@@ -177,7 +159,7 @@ def render(summary: dict, side: str, out_path, program=None) -> Path:
     if balanced:
         pen.text((px, GROUND + 20), f"{n} of {n} records balance", fonts["line"], anchor="c")
     else:
-        lo = px + 96 + 16  # keep the red text clear of the ground hatching
+        lo = px + 96 + 16
         for detail in details(summary):
             parts = [detail]
             if pen.width(detail, fonts["line"]) > W - MARGIN - lo and " records " in detail:
@@ -195,7 +177,6 @@ def render(summary: dict, side: str, out_path, program=None) -> Path:
 
 
 def ink_bottom(path) -> int:
-    """Lowest row (0-based) holding any pixel that is not paper, or -1 for a blank image."""
     img = Image.open(path).convert("RGB")
     diff = Image.eval(img, lambda v: 255 if v < 0xF4 else 0).convert("L")
     box = diff.getbbox()
@@ -203,7 +184,6 @@ def ink_bottom(path) -> int:
 
 
 def contact_sheet(states, out_path, program=None) -> Path:
-    """states: [(summary, label)]. Each tile at full size with its label above, and at 50% on the right."""
     import tempfile
     tiles = []
     with tempfile.TemporaryDirectory() as td:

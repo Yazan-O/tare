@@ -1,5 +1,3 @@
-"""The port under test as a case declares it: a runner in tare.json sides.local, a nested git clone under
-port/ with the gate's hooks, `git -C port commit` routed to the case, and explain's known causes."""
 import copy
 import json
 import tempfile
@@ -20,7 +18,6 @@ pathlib.Path(a.sandbox, "ran.txt").write_text(" ".join(sorted(p.name for p in pa
 
 
 def neither_doc():
-    """The half-up port's output with A10001 total_lb 12.34: neither truncation (10.09) nor half-up (10.10)."""
     doc = copy.deepcopy(load(RED))
     doc["files"]["totals"][0]["total_lb"] = "12.34"
     return doc
@@ -49,7 +46,6 @@ class LocalRunner(unittest.TestCase):
         self.assertEqual(list(prov["sources"]), ["port/MAIN", "port/Port.java"])
         self.assertEqual(self.sb.gate({"tool": "execute_command", "input": {"command": "git commit -m x"}})
                          .returncode, 0)
-        # an edit to the port's Java makes the weigh stale: the gate blocks, the next weigh reruns the runner
         (self.sb.root / "port" / "Port.java").write_text("class Port { int x; }\n", encoding="utf-8")
         g = self.sb.gate({"tool": "execute_command", "input": {"command": "git commit -m x"}})
         self.assertEqual(g.returncode, 2)
@@ -68,7 +64,6 @@ class LocalRunner(unittest.TestCase):
 
 
 class NestedClone(unittest.TestCase):
-    """port/ is a git repository of its own, ignored by the repository holding the case."""
 
     def setUp(self):
         self.sb = Sandbox()
@@ -109,7 +104,6 @@ class NestedClone(unittest.TestCase):
         c = self.port_git("commit", "-q", "-am", "x")
         self.assertEqual(c.returncode, 0, c.stdout + c.stderr)
         self.assertEqual(self.commits(), "2")
-        # an edit after the balanced weigh: stale, blocked
         port.write_text("class Port { int again; }\n", encoding="utf-8")
         c = self.port_git("commit", "-q", "-am", "y")
         self.assertIn("The port changed after the last weigh", c.stderr)
@@ -169,12 +163,10 @@ class KnownCauses(unittest.TestCase):
         self.assertIn("  100 |            COMPUTE OUT-TOTAL-LB = OUT-TOTAL-KG * 2.20462", text)
         self.assertIn("ports/halfup/Port.java:46", text)
         self.assertIn("setScale(2, RoundingMode.HALF_UP)", text)
-        # a field with no difference cites no cause
         self.assertNotIn("known causes", explain.explain(self.sb.root, port="halfup", field="qty"))
 
 
 class HeroCaseExplain(unittest.TestCase):
-    """The recorded java-ai output for commune 010001: the fee and waste-tax defects, never the ROUNDED rule."""
     CASE = Path(__file__).resolve().parents[1] / "cases" / "taxe_fonciere"
 
     def test_010001_tctdu(self):

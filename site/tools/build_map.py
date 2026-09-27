@@ -1,26 +1,15 @@
-"""Build site/data/map.json: metropolitan France's 2018 communes and départements, simplified for the page.
-
-Source: IGN ADMIN EXPRESS COG, edition 2018-04-03 (COMMUNE_CARTO and DEPARTEMENT_CARTO layers, Lambert-93),
-Licence Ouverte / Open Licence 2.0. Download:
-https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG/ADMIN-EXPRESS-COG_1-1__SHP__FRA_2018-04-03/ADMIN-EXPRESS-COG_1-1__SHP__FRA_2018-04-03.7z
-
-Usage: python build_map.py <folder holding COMMUNE_CARTO.* and DEPARTEMENT_CARTO.*> --out ../data/map.json
-Needs pyshp (pip install pyshp). Coordinates are Lambert-93 metres divided by GRID, rounded, delta-encoded
-per ring; y grows northwards (the page flips it).
-"""
 import argparse
 import json
 from pathlib import Path
 
 import shapefile
 
-GRID = 200          # metres per unit
-TOL_COM = 350       # Douglas-Peucker tolerance, metres, communes
-TOL_DEP = 600       # départements
+GRID = 200
+TOL_COM = 350
+TOL_DEP = 600
 
 
 def dp(pts, tol):
-    """Douglas-Peucker on a closed ring; keeps the first point and the farthest-from-first point as anchors."""
     n = len(pts)
     if n < 5:
         return pts
@@ -68,7 +57,7 @@ def encode(shape, tol, min_area):
     biggest = max(rs, key=ring_area)
     for r in rs:
         if r is not biggest and ring_area(r) < min_area:
-            continue                      # drop islets and holes too small to see at page scale
+            continue
         s = dp(r[:-1] if r[0] == r[-1] else r, tol)
         q, last = [], None
         for x, y in s:

@@ -1,5 +1,4 @@
-/* Tare parity receipt. Every number on the page is read from data/communes.js, data/run.js and data/map.js,
-   which site/tools/build_site.py writes from the case's run output. */
+
 (function () {
   "use strict";
   const D = window.TARE, RUN = window.TARE_RUN, M = window.TARE_MAP;
@@ -33,7 +32,6 @@
   const name = i => D.name[i];
   const lbl = f => `<span class="lbl-l">${LABEL[f][0]}</span><span class="lbl-s">${LABEL[f][2]}</span><span class="code">${LABEL[f][1]}</span>`;
 
-  /* ---------- hero: commune record 01001 ---------- */
   const PEN = '<svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true"><path d="M8 22 C 6 8, 40 3, 62 4 C 88 5, 99 12, 96 23 C 93 34, 60 38, 36 36 C 14 34, 3 28, 9 15 C 12 10, 20 7, 27 6"/></svg>';
   function heroTable(i) {
     const rows = ROWS.filter(f => f !== "tctom" || ak(f, i) || sv(AI, f, i));
@@ -56,7 +54,6 @@
     ? `Record 01001 carries no household-waste tax, so only defect 1 moves its total. ${fmt(withOm)} of ${fmt(N)} commune records carry one; search Lyon or Bordeaux to see both defects at once.`
     : `${fmt(withOm)} of ${fmt(N)} commune records carry a household-waste tax.`;
 
-  /* ---------- counts ---------- */
   const nAI = D.sides[AI].records_differ, nFX = D.sides[FX].records_differ;
   $("counts-h2").textContent = `${fmt(nAI)} of ${fmt(N)} commune records differ. After two fixes, ${fmt(nFX)} do.`;
   const ain = D.insee.map((c, i) => i).filter(i => dep(i) === "01");
@@ -71,7 +68,6 @@
     "</tbody>";
   if (ainAI !== demo.ai_differ || ain.length !== demo.records) console.warn("Ain slice of the national replay:", ainAI, "of", ain.length);
 
-  /* ---------- search ---------- */
   const norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const keys = D.name.map(norm);
   const q = $("q"), hits = $("hits");
@@ -126,7 +122,6 @@
   $("try").addEventListener("click", e => { const b = e.target.closest("button"); if (b) pick(byCode.get(b.dataset.c)); });
   pick(byCode.get(TRY[1] || "01001"));
 
-  /* ---------- map ---------- */
   const box = $("map-box"), cv = $("map-c"), tip = $("map-tip");
   const [x0, y0, x1, y1] = M.bbox;
   const drawn = [];                       // [data index, Path2D in map units]
@@ -220,13 +215,11 @@
   window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(draw, 120); });
   draw();
 
-  /* ---------- gate ---------- */
   const shots = BOB_SHOTS.length ? BOB_SHOTS : RUN.scale;
   $("shots").innerHTML = shots.map(s => `<figure><a href="${esc(s.src)}"><img src="${esc(s.src)}" alt="${esc(s.caption)}" loading="lazy"></a><figcaption>${esc(s.caption)}</figcaption></figure>`).join("");
   $("runlog").innerHTML = RUN.log.map(l => /^TARE RED/.test(l) ? `<span class="r">${esc(l)}</span>` : esc(l)).join("\n");
   $("foot-data").textContent = `National replay ${RUN.date}; ${fmt(N)} commune records`;
 
-  /* ---------- act two: Medicare hospice (data/medicare.js, site/tools/medicare_facts.py) ---------- */
   const V = window.TARE_MEDICARE.values, C = V.claims;
   const row = (who, code, n, what, red) =>
     `<tr><td>${who}<span class="code">${code}</span><span class="where-s">${what}</span></td>${cells(n, C, red)}<td class="where">${what}</td></tr>`;

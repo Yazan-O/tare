@@ -1,12 +1,3 @@
-"""Public ports ('sides') declared in tare.json: how to run each one and its committed fixture.
-
-A side is {runner, repo, commit, licence, line}. runner is either 'java:<dir>' (a Java port under <dir>,
-built and run in its own sandbox exactly as the port under test is) or a command such as
-'python ports/<name>/run.py', run from the case root with --input <input dir> --out work/runs/<side>; the
-command writes <out>/<file>.dat for every output file (or <out>/records.json). line is 'file:line  source'
-of the port's statement that decides its result. The committed fixture of a side is
-fixtures/sides/<side>/records.json (recorded output, labelled RECORDED wherever it is used).
-"""
 import json
 import shlex
 import shutil
@@ -32,7 +23,6 @@ def _java_dir(e: dict):
 
 
 def missing_tools(root: Path, side: str) -> list:
-    """Tools the side's runner needs that are not on this machine (empty list: it can run)."""
     e = entry(root, side)
     if _java_dir(e) is not None:
         return [] if localport.find_jdk() else ["JDK >= 17"]
@@ -53,14 +43,12 @@ def fixture_path(root: Path, side: str) -> Path:
 
 
 def recorded_label(path: Path) -> str:
-    """The label every recorded (not freshly run) output carries."""
     with open(path, encoding="utf-8") as f:
         command = json.load(f).get("command")
     return f"RECORDED OUTPUT (committed fixture, produced by: {command})"
 
 
 def use_fixture(root: Path, side: str) -> Path:
-    """Copy the committed fixture to work/runs/<side>/records.json and return the copy's path."""
     src, dst = fixture_path(root, side), run_path(root, side)
     if not src.is_file():
         raise FileNotFoundError(f"no committed fixture for {side} at {src}")
@@ -83,7 +71,6 @@ def source_patterns(root: Path, side: str) -> list:
 
 
 def run(root: Path, side: str):
-    """Run one side on the answer key's input. Returns (records.json path, log). Raises PortRunError."""
     e = entry(root, side)
     out_rel = f"work/runs/{side}"
     command = f"python -m tare run-port {side}"
@@ -95,7 +82,6 @@ def run(root: Path, side: str):
 
 
 def line(root: Path, side: str) -> str:
-    """'file:line  source text' of the side's deciding statement, from tare.json."""
     cfg = config.load_config(root)
     e = config.local_entry(cfg) if side == config.PORT_SIDE else config.sides(cfg).get(side) or {}
     return str(e.get("line") or "(no line declared in tare.json)")

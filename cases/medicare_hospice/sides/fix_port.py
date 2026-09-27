@@ -1,11 +1,3 @@
-"""Apply sides/ai_port_fixes.json to a copy of the AI port: edits by file and line number, each checked
-against the SHA-256 of the line it expects before anything is written.
-
-  python sides/fix_port.py --check              verify every expected line in cache/repos/rcaran
-  python sides/fix_port.py --apply <copy root>  edit a copy of the port in place (port_runner.py does this)
-
-Every edit is verified first; one mismatch and nothing is changed. Line endings are kept as found.
-"""
 import argparse
 import hashlib
 import json
@@ -34,7 +26,6 @@ def line_sha(text: str) -> str:
 
 
 def _lines(path: Path) -> list:
-    """The file as [(text, ending)], so an edit keeps the file's own line endings."""
     out = []
     for raw in path.read_bytes().decode("utf-8").splitlines(keepends=True):
         text = raw.rstrip("\r\n")
@@ -43,7 +34,6 @@ def _lines(path: Path) -> list:
 
 
 def check(root: Path, spec: dict) -> list:
-    """Every edit whose expected line is not at its place under root, as messages; [] when all match."""
     bad = []
     for rel in files(spec):
         p = root / rel
@@ -63,7 +53,6 @@ def check(root: Path, spec: dict) -> list:
 
 
 def apply(root: Path, spec: dict) -> list:
-    """Edit the port under root in place; the files changed. Raises FixError before writing on a mismatch."""
     bad = check(root, spec)
     if bad:
         raise FixError(f"{SPEC.name} does not match the port at {root} (expected commit {spec['commit'][:7]}):\n  "
@@ -85,7 +74,7 @@ def apply(root: Path, spec: dict) -> list:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description="Apply sides/ai_port_fixes.json to a copy of the AI port, each edit checked by SHA-256.")
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--check", action="store_true")
     g.add_argument("--apply", metavar="ROOT", type=Path)

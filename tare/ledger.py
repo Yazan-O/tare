@@ -1,20 +1,9 @@
-"""The ledger: align a port's records against the answer key's, by key per output file, field by field.
-
-Numeric fields compare in Decimal; text fields compare as strings. Every declared field is compared.
-Accepted differences (tare.json 'accepted') are entries
-  {file, key, fields, expect: {field: value} | "answer_key", reason, accepted_by, date, seal}
-An entry covers only the listed fields of the one record it names, and only when the port writes exactly the
-expected value: {field: value} pins that value; "answer_key" pins the answer key's own value (a signed review
-that accepts no other value). The answer key's own value always passes. An entry whose seal does not match its
-content (a hand edit) covers nothing. Missing and extra records are never accepted.
-"""
 from decimal import Decimal, InvalidOperation
 
 from . import config, records
 
 
 def entry_seal(entry: dict) -> str:
-    """The seal `tare accept` writes: sha256 of the entry's content without the seal."""
     return config.sha256_json({k: v for k, v in entry.items() if k != "seal"})
 
 
@@ -45,7 +34,6 @@ def signed(d: Decimal) -> str:
 
 
 def _keyed(items, layout):
-    """[(key + occurrence index, item)] so a repeated key still aligns in order."""
     seen, out = {}, []
     for it in items:
         k = records.key_of(it, layout)
@@ -56,7 +44,6 @@ def _keyed(items, layout):
 
 
 def expected_values(entry: dict, answer_rec: dict) -> dict:
-    """{field: value the port must write} for an accepted entry; {} when it covers nothing."""
     fields = [f for f in entry.get("fields") or [] if isinstance(f, str)]
     exp = entry.get("expect")
     if isinstance(exp, dict):
@@ -75,11 +62,6 @@ def _entries_for(accepted, file, key):
 
 
 def weigh(answer: dict, port: dict, cfg: dict, accepted=None) -> dict:
-    """Compare two records documents over tare.json's output files. Returns {'summary', 'rows'}.
-
-    A row is one differing field of a matched record ({file, key, field, answer, port, delta, status}, status
-    higher, lower, differs or accepted), or a whole record ({field: '*', status missing or extra}).
-    """
     rows, numeric = [], {}
     total = differ = fields_differ = missing = extra = 0
     higher_all = lower_all = 0
@@ -204,7 +186,6 @@ def _field_detail(s: dict) -> list:
 
 
 def describe(s: dict) -> str:
-    """One plain sentence, e.g. '3 of 5 records differ from the answer key (total_lb: 3 higher, 0 lower, net +0.03)'."""
     n = s["records_total"]
     if s["verdict"] == "balanced":
         return f"{n} of {n} records balance" + _accepted_note(s)
@@ -243,7 +224,6 @@ def _r(v, w):
 
 
 def format_table(result: dict, limit=None) -> str:
-    """Header line, then only the differing rows."""
     s = result["summary"]
     head = (f"TARE {s['verdict'].upper()}  {s.get('port_side')} vs {s.get('answer_side')}: {describe(s)}. "
             f"Records {s['records_total']}, differ {s['records_differ']} (fields {s['fields_differ']}, "

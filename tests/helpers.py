@@ -1,8 +1,3 @@
-"""A throwaway case root for tests, copied from the test fixture examples/unitsum/.
-
-The documents used as port outputs are the fixture's recorded runs: fixtures/sides/exact/records.json (a
-correct port, balanced) and fixtures/sides/halfup/records.json (a port that rounds half-up, red on 3 of 5).
-"""
 import json
 import os
 import shutil
@@ -48,15 +43,12 @@ class Sandbox:
             (self.root / "port" / "MAIN").write_text("Port\n", encoding="utf-8")
 
     def use_port(self, name):
-        """Replace port/ with the test fixture's Java port ports/<name>/ (exact or halfup)."""
         for f in (self.root / "port").glob("*"):
             f.unlink()
         for f in (EXAMPLE / "ports" / name).iterdir():
             shutil.copy(f, self.root / "port" / f.name)
 
     def put_run(self, side, doc):
-        """Place a records document (a dict, or a path relative to the example) as the side's run output.
-        For 'local' this is a test double of a port run: it also writes the provenance a real run writes."""
         if isinstance(doc, str):
             doc = load(doc)
         d = self.root / "work" / "runs" / side
@@ -67,7 +59,6 @@ class Sandbox:
             localport.write_provenance(self.root, d, jdk="test double (no JDK run)")
 
     def java_port(self, body: str, cls="Port"):
-        """Replace port/ with one Java class whose main() runs `body` (the --out dir in `out`)."""
         for f in (self.root / "port").glob("*"):
             f.unlink()
         src = "\n".join([
@@ -83,7 +74,6 @@ class Sandbox:
         (self.root / "port" / "MAIN").write_text(cls + "\n", encoding="utf-8")
 
     def git_init(self):
-        """Make the sandbox a git repo with everything committed; git config isolated from the machine's."""
         self.git_env = dict(self.env(), GIT_CONFIG_NOSYSTEM="1",
                             GIT_CONFIG_GLOBAL=str(self.root / "work" / "no-gitconfig"),
                             GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t",

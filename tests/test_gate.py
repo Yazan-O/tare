@@ -11,7 +11,6 @@ COMMIT = {"tool": "execute_command", "input": {"command": "git commit -m x"}}
 
 
 class GateExitCodes(unittest.TestCase):
-    """The Bob PreToolUse hook, run as Bob runs it: python .bob/hooks/gate.py with the payload on stdin."""
 
     def setUp(self):
         self.sb = Sandbox()
@@ -79,7 +78,6 @@ class GateExitCodes(unittest.TestCase):
             sb.close()
 
     def test_completion_is_never_trapped(self):
-        """Completion is allowed while red (with a notice) so Bob is never stuck; commit stays blocked."""
         done = {"tool": "attempt_completion", "input": {"result": "Port finished."}}
         r = self.sb.gate(done)
         self.assertEqual(r.returncode, 0)

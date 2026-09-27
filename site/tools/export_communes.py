@@ -1,15 +1,3 @@
-"""Export the national replay to site/data/communes.json: one column per field, one entry per commune record.
-
-Inputs (all produced by the case, see cases/taxe_fonciere/README.md, "The full run covers..."):
-  --rei       cache/rei/REI_2018.csv       commune code and name (LIBCOM) of each input record
-  --answer    full/fixtures/answer_key/records.json   the COBOL's output (GnuCOBOL), one record per commune
-  --side NAME=PATH  a port's records.json (work/runs/<side>/records.json), repeatable
-  --names DBF       optional, repeatable: ADMIN EXPRESS COG 2018 COMMUNE(_CARTO).dbf tables (IGN, Licence Ouverte 2.0);
-                    their NOM_COM gives the commune's name in its usual spelling; REI's LIBCOM is the fallback
-Every value is copied from those files. A side's column is written only for fields where it differs from the
-answer key on at least one commune; for the other fields the file records that the side equals the answer key
-on every commune, which this script checks before writing.
-"""
 import argparse
 import csv
 import json
@@ -19,7 +7,6 @@ SHOWN = ["tcthfr", "tctom", "mfa300", "mfn300", "mfa800", "mfn800", "mfa900", "m
 
 
 def key_of(row):
-    """The record key build_input.py writes (AC3DIR + CCOCOM) and the commune's INSEE code."""
     d, dr, com = row["DEP"].strip(), row["DIR"].strip(), row["COM"].strip()
     if len(d) == 3:
         return d[:2] + d[2] + d[2] + com.zfill(2), d + com.zfill(2)

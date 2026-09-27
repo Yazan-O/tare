@@ -1,17 +1,3 @@
-"""Build the case's input from REI 2018 (DGFiP, Licence Ouverte 2.0): one built-property bill per commune.
-
-REI holds commune-level totals and voted rates, no personal data. For each commune this writes:
-  rates.txt  one line per commune, the built-property rates the rate file holds, read by harness/LOADTAU:
-             dir;com;ifp;per;PTBDEP;PTBTAS;PTBCOM;PTBSYN;PTBCU;PTBTSN1;PTBTSN2;PTBGEM;
-             PBBOMP;PBBOMA;PBBOMB;PBBOMC;PBBOMD;PBBOME
-  bills.txt  one 600-byte COMBAT record per commune (the calculator's own input area, copybook XCOMBAT),
-             trailing spaces trimmed; tare.json pads each line back to 600 bytes.
-The commune's net bases are the bill's bases, so each record is the commune taken as one bill.
-The département and TASA rates live at direction level in the rate file; each direction takes its first
-commune's values, as the rate file has one value per direction.
-
-Usage: python build_input.py <REI_2018.csv> --out <dir> [--dep 01]
-"""
 import argparse
 import collections
 import csv
@@ -37,7 +23,6 @@ def rate(row, k):
 
 
 def s9(n: int, width=10) -> str:
-    """PIC S9(width) DISPLAY as GnuCOBOL writes it: digits, the sign carried in the last digit (p-y negative)."""
     digits = str(abs(n)).zfill(width)
     if len(digits) > width:
         raise ValueError(f"{n} does not fit in S9({width})")
@@ -45,20 +30,19 @@ def s9(n: int, width=10) -> str:
 
 
 def combat(cc2dep, ccodir, ccocom, row) -> str:
-    """The 600-byte XCOMBAT area; unused fields are spaces, as the calling system leaves them."""
-    r = ["2", YEAR, cc2dep, ccodir, ccocom, "A",          # CCOBNB, DAN, AC3DIR, CCOCOM, DSRPAR
-         "A", "00001", " " * 8,                            # CGROUP, NNUPRO, GTOTAU(8)
-         s9(base(row, "E11")), s9(base(row, "E41")), s9(0),  # MBACOM, MBADEP, MBAREG
-         s9(base(row, "E21")), s9(base(row, "E31")), s9(0),  # MBASYN, MBACU, MBATSE
-         s9(base(row, "E51")), s9(base(row, "E51A")),        # MBBT13(1), MBBT13(2)
+    r = ["2", YEAR, cc2dep, ccodir, ccocom, "A",
+         "A", "00001", " " * 8,
+         s9(base(row, "E11")), s9(base(row, "E41")), s9(0),
+         s9(base(row, "E21")), s9(base(row, "E31")), s9(0),
+         s9(base(row, "E51")), s9(base(row, "E51A")),
          " " * 20]
-    for code, col in ZONES:                                    # ABAOM(6): GTAUOM, MBAOM
+    for code, col in ZONES:
         b = base(row, col)
         r += [code if b else "  ", s9(b)]
     teomi = base(row, "TIEOMC") + base(row, "TIEOMS") + base(row, "TIEOMG")
-    r += [" " * 120, s9(teomi), " " * 16,                      # FILLER 9(10) x 12, MVLTIM, PVLTOM
-          s9(base(row, "E51gGEMAPI")), s9(base(row, "E51TASA")),  # MBAGE3, MBATA3
-          ccocom, "001", " " * 230]                            # CCOIFP, CCPPER, FILLER
+    r += [" " * 120, s9(teomi), " " * 16,
+          s9(base(row, "E51gGEMAPI")), s9(base(row, "E51TASA")),
+          ccocom, "001", " " * 230]
     rec = "".join(r)
     assert len(rec) == 600, len(rec)
     return rec.rstrip(" ")
@@ -74,7 +58,7 @@ def build(src: Path, out: Path, dep=None) -> dict:
             d, dr, com = row["DEP"].strip(), row["DIR"].strip(), row["COM"].strip()
             if not d or not com:
                 continue
-            if len(d) == 3:          # overseas: INSEE 971xx is direction 971, commune 1xx
+            if len(d) == 3:
                 cc2dep, ccodir, ccocom = d[:2], d[2], d[2] + com.zfill(2)
             else:
                 cc2dep, ccodir, ccocom = d.zfill(2), (dr or "0"), com.zfill(3)
@@ -82,7 +66,7 @@ def build(src: Path, out: Path, dep=None) -> dict:
                 continue
             n += 1
             ac3 = cc2dep + ccodir
-            direction = (rate(row, "E42"), rate(row, "E52TASA"))   # PTBDEP, PTBTAS
+            direction = (rate(row, "E42"), rate(row, "E52TASA"))
             if ac3 not in dirlevel:
                 dirlevel[ac3] = direction
             else:

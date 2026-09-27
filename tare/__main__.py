@@ -1,9 +1,7 @@
-"""python -m tare answer-key | run-port | weigh | explain | gate | install-hooks | fetch | accept | contract |
-sheet | reproduce | check | reset"""
 import sys
 from pathlib import Path
 
-if __name__ == "__main__" and not __package__:  # run as a file path: python <repo>/tare/__main__.py
+if __name__ == "__main__" and not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from tare.__main__ import main
     sys.exit(main())
@@ -51,7 +49,7 @@ def main(argv=None) -> int:
                                                         "test), a git repository of its own")
     f.add_argument("--reset-local", action="store_true", help="put port/ back at the published commit, "
                                                               "discarding its uncommitted changes and commits")
-    f.add_argument("--full", action="store_true", help="also the national data (see the case README)")
+    f.add_argument("--full", action="store_true", help="also the national data")
     ac = sub.add_parser("accept", help="a person signs an accepted difference for one record in tare.json")
     ac.add_argument("--file", help="output file name (default: the only one)")
     ac.add_argument("--key", help="record key")

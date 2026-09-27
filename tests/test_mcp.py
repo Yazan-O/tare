@@ -32,7 +32,7 @@ class McpServer(unittest.TestCase):
             {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "weigh", "arguments": {"side": "local"}}},
             {"jsonrpc": "2.0", "id": 4, "method": "ping"},
         ])
-        self.assertEqual([m["id"] for m in out], [1, 2, 3, 4], err)  # no reply to the notification
+        self.assertEqual([m["id"] for m in out], [1, 2, 3, 4], err)
         self.assertEqual(out[0]["result"]["protocolVersion"], "2025-03-26")
         tools = out[1]["result"]["tools"]
         self.assertEqual([t["name"] for t in tools], ["run_mainframe", "run_port", "weigh", "explain"])
@@ -53,7 +53,6 @@ class McpServer(unittest.TestCase):
         self.assertTrue((self.sb.root / ".tare" / "weigh_local.json").is_file())
 
     def test_unknown_version_gets_latest_and_file_launch_works(self):
-        # the launch form in .bob/mcp.json: python <repo>/tare/mcp_server.py
         out, err = session(self.sb, [{"jsonrpc": "2.0", "id": 1, "method": "initialize",
                                       "params": {"protocolVersion": "1999-01-01"}}],
                            argv=[sys.executable, str(REPO / "tare" / "mcp_server.py")])
