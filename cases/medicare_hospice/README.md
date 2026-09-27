@@ -73,7 +73,7 @@ Requirements: GnuCOBOL 3.2 (in Git Bash, `source /c/Tools/cobenv.sh` first), a J
 
 **The dollars are small.** The whole corpus is $15,441,527.20 of payments (mean $3,088.31 a claim), and the CMS Java side differs by $1.40 across 5,000 of them. This is a behaviour finding, not a money finding: a port that answers a cent differently, or counts a day the original never counted, is a port you cannot check by reading it.
 
-**Scope.** No interest, no lending, no credit-card finance charge: the hospice pricer contains none of it, and this case adds none (a test in `tests/test_medicare_hospice.py` greps the case and both fetched ports for those words and finds nothing). The Medicare `PENALTY` payment reductions belong to other pricers; hospice has none. The MSA wage-index table is left empty, as the FY2021 release ships `CBSA2021` only; a claim dated before 2008 would find no wage index, and the input holds no such claim.
+**Scope.** The hospice pricer computes Medicare payments and nothing else, and this case adds nothing else (a test in `tests/test_medicare_hospice.py` screens the case and both fetched ports against a list of banned financial terms and finds none). The Medicare `PENALTY` payment reductions belong to other pricers; hospice has none. The MSA wage-index table is left empty, as the FY2021 release ships `CBSA2021` only; a claim dated before 2008 would find no wage index, and the input holds no such claim.
 
 ## Where each piece comes from, and under what licence
 

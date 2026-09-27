@@ -47,7 +47,7 @@ original program and names the COBOL line and the port line behind each differen
   fixed seed. No person's data exists. 15.5% of them bill continuous home care, where real hospice is
   98.8% routine home care, which is why the honest rate is 35% of CHC claims and not a rate over all
   hospice claims.
-- **Is the cent CMS's fault?** We do not know, and we do not claim it. The COBOL is the answer key here;
+- **Is the cent CMS's fault?** The finding is a difference, not a verdict. The COBOL is the answer key here;
   the difference is the order of rounding, and every line payment agrees.
 - **Is the port bad?** It is a public port with no licence file, AI-assisted judging by the agent files
   it ships (`.cursor/`, `.windsurf/`, `.specs/`), and its README claims functional parity for FY1998 to
