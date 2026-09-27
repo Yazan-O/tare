@@ -8,6 +8,13 @@ Governments still run high-stakes money on decades-old COBOL: property tax, heal
   <img src="assets/hero.svg" alt="Close enough doesn't commit." width="100%">
 </p>
 
+<p align="center">
+  <a href="https://yazan-o.github.io/tare/"><strong>🌐 Live Interactive Parity Receipt (Search 35,389 Communes)</strong></a> &nbsp;•&nbsp;
+  <a href="#the-proof-one-bob-session"><strong>⚡ 3.74 Bobcoin Recorded Take</strong></a> &nbsp;•&nbsp;
+  <a href="#reproduce"><strong>💻 Offline Reproduce in 3s</strong></a>
+</p>
+
+
 ## The problem people miss
 
 What teams check first is the port's own tests and a code review. That fails when the same agent wrote the port and the tests.
