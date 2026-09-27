@@ -47,16 +47,7 @@ Recorded in IBM Bob IDE (2026-09-26). One prompt. **3.74 Bobcoins.** Stills in [
 </p>
 
 <p align="center">
-  <img src="bob_sessions/tare_task01_01_first_block_no_weigh.png" alt="Blocked: no weigh" width="19%">
-  <img src="bob_sessions/tare_task01_02_weigh_red_408_of_408.png" alt="Red 408 of 408" width="19%">
-  <img src="bob_sessions/tare_task01_03_two_subagents_running.png" alt="Two parallel subagents" width="19%">
-  <img src="bob_sessions/tare_task01_05_stale_edit_block.png" alt="Stale edit blocked" width="19%">
-  <img src="bob_sessions/tare_task01_07_balanced_408_of_408.png" alt="Balanced 408 of 408" width="19%">
-</p>
-<p align="center">
-  <img src="bob_sessions/tare_task01_06_wrong_guess_296_still_differ.png" alt="Wrong guess mcttse, 296 still differ" width="32%">
-  <img src="bob_sessions/tare_task01_08_committed_task_summary_3.74.png" alt="Committed, 3.74 Bobcoins" width="32%">
-  <img src="bob_sessions/tare_task01_09_bob_final_summary.png" alt="Bob closing summary" width="32%">
+  <img src="assets/bob_proof.png" alt="Bob session proof panels cropped from bob_sessions: blocked, 408 of 408 red, subagents, stale edit, wrong guess 296 still differ, balanced, 3.74 Bobcoins / 9ee1c3c." width="100%">
 </p>
 
 ## Examples
@@ -66,12 +57,10 @@ Recorded in IBM Bob IDE (2026-09-26). One prompt. **3.74 Bobcoins.** Stills in [
 DGFiP built-property calculator, 2018. Ain demo slice and full national run. Commune records from REI open data — not household bills.
 
 <p align="center">
-  <img src="assets/france_scales.svg" alt="Published port red nationally; repaired port balanced." width="100%">
+  <img src="assets/france_red.png" alt="Published port national map: 35,268 of 35,389 commune records differ (red). IGN ADMIN EXPRESS COG 2018." width="100%">
 </p>
 <p align="center">
-  <img src="assets/scale_published.png" alt="National scale: published port red" width="48%">
-  &nbsp;
-  <img src="assets/scale_repaired.png" alt="National scale: repaired port balanced" width="48%">
+  <img src="assets/france_black.png" alt="Repaired port national map: 0 of 35,389 commune records differ (black). Same answer key." width="100%">
 </p>
 
 | Side | Ain | National |

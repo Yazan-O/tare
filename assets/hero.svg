@@ -1,21 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="t d">
   <title id="t">Tare - Close enough does not commit</title>
   <desc id="d">Banner: the original program is the answer key; a red port cannot be committed.</desc>
-  <rect width="1280" height="420" fill="#FEFEFE"/>
-  <rect x="0" y="0" width="8" height="420" fill="#C8102E"/>
-  <text x="64" y="72" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" letter-spacing="0.12em" fill="#6B6B6B">TARE | IBM BOB 2.0</text>
-  <text x="64" y="180" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="600" fill="#1E1E1E">Close enough</text>
-  <text x="64" y="256" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="600" fill="#C8102E">doesn&#39;t commit.</text>
-  <text x="64" y="330" font-family="Consolas, monospace" font-size="20" fill="#6B6B6B">The original COBOL is the answer key. Every record is weighed.</text>
-  <g transform="translate(980,110)">
-    <line x1="40" y1="20" x2="140" y2="20" stroke="#1E1E1E" stroke-width="3"/>
-    <line x1="90" y1="20" x2="90" y2="70" stroke="#1E1E1E" stroke-width="3"/>
-    <line x1="20" y1="70" x2="160" y2="110" stroke="#1E1E1E" stroke-width="3"/>
-    <rect x="8" y="68" width="56" height="36" fill="#FEFEFE" stroke="#1E1E1E" stroke-width="2"/>
-    <rect x="116" y="108" width="56" height="36" fill="#C8102E" stroke="#1E1E1E" stroke-width="2"/>
-    <text x="36" y="92" text-anchor="middle" font-family="Consolas, monospace" font-size="14" fill="#1E1E1E">COBOL</text>
-    <text x="144" y="132" text-anchor="middle" font-family="Consolas, monospace" font-size="14" fill="#FEFEFE">PORT</text>
-    <text x="90" y="180" text-anchor="middle" font-family="Consolas, monospace" font-size="16" font-weight="600" fill="#C8102E">RED</text>
+  <rect width="1280" height="480" fill="#FEFEFE"/>
+  <rect x="0" y="0" width="10" height="480" fill="#C8102E"/>
+
+  <text x="56" y="64" font-family="Consolas, 'Courier New', monospace" font-size="15" font-weight="500" letter-spacing="0.14em" fill="#6B6B6B">TARE  |  IBM BOB 2.0</text>
+  <text x="56" y="168" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700" fill="#1E1E1E">Close enough</text>
+  <text x="56" y="252" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700" fill="#C8102E">doesn&#39;t commit.</text>
+  <text x="56" y="330" font-family="Consolas, 'Courier New', monospace" font-size="20" fill="#6B6B6B">The original COBOL is the answer key. Every record is weighed.</text>
+  <text x="56" y="368" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#6B6B6B">A blocking gate refuses the commit while the last weigh is red, missing, or stale.</text>
+
+  <!-- Real balance: column, fulcrum, tipped beam, hanging pans -->
+  <g transform="translate(860,70)">
+    <!-- base -->
+    <rect x="118" y="300" width="84" height="12" fill="#1E1E1E"/>
+    <rect x="136" y="280" width="48" height="20" fill="#1E1E1E"/>
+    <!-- column -->
+    <rect x="150" y="40" width="20" height="240" fill="#1E1E1E"/>
+    <!-- fulcrum nut -->
+    <circle cx="160" cy="70" r="16" fill="#1E1E1E"/>
+    <circle cx="160" cy="70" r="7" fill="#FEFEFE"/>
+    <!-- beam tipped ~12deg around fulcrum -->
+    <g transform="rotate(12 160 70)">
+      <rect x="8" y="62" width="304" height="16" rx="2" fill="#1E1E1E"/>
+      <!-- left hanger -->
+      <line x1="36" y1="78" x2="36" y2="150" stroke="#1E1E1E" stroke-width="3"/>
+      <line x1="12" y1="150" x2="60" y2="150" stroke="#1E1E1E" stroke-width="3"/>
+      <path d="M8 150 L64 150 L56 210 L16 210 Z" fill="#FEFEFE" stroke="#1E1E1E" stroke-width="3.5"/>
+      <text x="36" y="188" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="16" font-weight="700" fill="#1E1E1E">COBOL</text>
+      <!-- right hanger -->
+      <line x1="284" y1="78" x2="284" y2="150" stroke="#1E1E1E" stroke-width="3"/>
+      <line x1="260" y1="150" x2="308" y2="150" stroke="#1E1E1E" stroke-width="3"/>
+      <path d="M256 150 L312 150 L304 210 L264 210 Z" fill="#C8102E" stroke="#1E1E1E" stroke-width="3.5"/>
+      <text x="284" y="188" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="16" font-weight="700" fill="#FEFEFE">PORT</text>
+    </g>
+    <text x="160" y="348" text-anchor="middle" font-family="Consolas, 'Courier New', monospace" font-size="20" font-weight="700" fill="#C8102E">RED</text>
   </g>
 </svg>
