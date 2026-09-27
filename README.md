@@ -1,98 +1,164 @@
 # Tare
 
-Tare replays a COBOL batch program and a port of it on the same input, and weighs their outputs record by record and field by field. The original program's output is the answer key. A commit gate for IBM Bob, and git hooks for every other client, refuse a commit while the port's last weigh is red.
+**Submitted for the IBM Bob 2.0 hackathon on [lablab.ai](https://lablab.ai).**
 
-To tare a scale is to zero it, so that it measures only what matters.
+Governments still run high-stakes money on decades-old COBOL: property tax, health payments, and more. Those programs are being rewritten by AI agents. The GAO's latest look at critical U.S. federal legacy IT ([GAO-25-107795](https://www.gao.gov/products/gao-25-107795)) finds agencies spending most of their IT budgets keeping old systems running, and names Treasury systems that still depend on COBOL and Assembly while the people who know those languages grow scarce. The rewrite has to compute what the old program computes. "Looks right" is not enough.
 
-## First run
+<p align="center">
+  <img src="assets/hero.svg" alt="Close enough doesn't commit." width="100%">
+</p>
 
-From the repository root, which opens on the property-tax case (`cases/taxe_fonciere/`):
+## The problem people miss
 
-```
-python -m tare reproduce --offline     # seconds, Python only: java-ai red on 408 of 408 Ain communes, java-ai-fixed balanced
-python -m tare fetch --local           # the DGFiP COBOL and the published Java port; port/ becomes the port under test
-python -m tare weigh --port local      # builds and runs port/ (JDK >= 17, Maven): red, 408 of 408
-python -m tare explain --key 010001 --field tctdu --port local
-```
+What teams check first is the port's own tests and a code review. That fails when the same agent wrote the port and the tests.
 
-`reproduce` fails (exit 1) when no side is declared or an expected side has neither a run nor a committed fixture: a reproduce that weighs nothing proves nothing.
+France publishes its property-tax COBOL and a public Java port co-written with an AI coding agent. The port's built-property unit tests pass **4 of 4**. Run the unmodified COBOL and the port on the same 2018 commune inputs and the totals differ on **408 of 408** Ain commune records, and on **35,268 of 35,389** nationally. These are commune-level statistics shaped into calculator inputs, not household bills. For commune 01001 the COBOL total due is €137,415 and the published port writes €144,041 — a replay difference on that record, not a claim about money lost.
 
-## How it works
+Two defects pass the unit tests: the 3% and 8% fee rates swapped, and the household-waste tax left out of the total before fees.
 
-1. **Answer key.** `python -m tare answer-key` compiles the original COBOL with GnuCOBOL and runs its job steps as `tare.json` describes them: DD names mapped to files, an optional PARM, indexed files loaded and unloaded with their keys. It writes `fixtures/answer_key/`: the input files, each output file byte for byte, `records.json` (the outputs decoded with their layouts) and each step's job log. The z/OS pieces are harness programs generated from `tare.json`, each headed `HARNESS:`: a loader/unloader standing in for IDCAMS REPRO, one PARM driver per step with a PARM, and a CEE3ABD abend stub. Before it writes `records.json`, it checks that the COBOL's own output is sound: every packed-decimal (COMP-3) field holds valid digit and sign half-bytes, every zoned numeric field decodes, and every declared `echo` reads back. An unsound output stops with `answer key unsound: field X in record N of <file> is not valid packed decimal (bytes ...)` and writes no `records.json`; `reproduce` and `check` run the same check on the committed answer key and stop before weighing any side.
-2. **Port.** `python -m tare run-port local` compiles the Java under `port/`, runs it in a sandbox on the answer key's input, and decodes the fixed-width files it writes with the same layouts. A case may declare how its port is built instead (`sides.local.runner` in `tare.json`, such as a Maven build); the runner gets a sandbox of its own (`--sandbox work/sandbox/local`, with copies of the input files) and the run is recorded the same way.
-3. **Weigh.** `python -m tare weigh --port local` aligns the two sides by key per output file and compares every declared field, numbers in decimal. The ledger counts records, differing records and fields, missing and extra records, and for each numeric field how many values are higher, how many lower, and the net. The verdict is balanced or red, and a drawing of a balance scale shows it.
-4. **Explain.** `python -m tare explain --key <key> --field <field>` shows both values, the COBOL statements that write the field or a group holding it (with file:line, read from the source), the field's PIC and USAGE (copybooks expanded with their `COPY ... REPLACING`: pseudo-text, literals, words, `LEADING` and `TRAILING`), and, for a numeric difference, the exact arithmetic of the `COMPUTE` when its operands are in the record: truncated and rounded half-up, beside what each side wrote. IBM's documented rule for `ROUNDED` is cited only when one of the two reproduces the port's value. When a side's `causes` in `tare.json` name the field, explain also quotes, from the sources as they are now, the COBOL lines that produce the original's value and the port's own lines where the cause sits.
+<p align="center">
+  <img src="assets/problem.svg" alt="Unit tests pass 4 of 4; the answer key finds 408 of 408 red." width="100%">
+</p>
 
-## A case
+## What Tare does
 
-A case is a folder holding `tare.json`, the COBOL under `mainframe/`, the answer key under `fixtures/answer_key/` and the port under `port/`. `tare.json` describes it:
+To *tare* a scale is to zero it so it measures only what matters.
 
-| Key | What it holds |
-|---|---|
-| `cobol` | `sources`, `copybooks` (folders) and `flags` (default `-std=ibm`; add `-fsign=EBCDIC` when signs are EBCDIC overpunch) |
-| `files` | per file: `from` (initial content; `from_format` `fixed` or `lines`), `record_length`, `organization` (`sequential` or `indexed` with `key {offset, length}` and `alternate_keys`), `layout`, `output: true` for the files the weigh compares, and on an output file optional round-trip checks `echo: [{field, input, input_field, match}]` (the output field reads back equal to an input file's field, in the input record with the same number, `match: record`, or in any input record, `match: any`) |
-| `steps` | per job step: `program`, `dd` (DD name to file), optional `parm` (passed as a halfword length plus text), `rc` (accepted return codes) |
-| `layouts` | per layout: `record_length`, `key` (field names) and `fields`: `{name, offset, length, type: X, 9, S9V9 or COMP-3 (packed decimal), scale, sign: trailing-overpunch, separate or none, cobol}` |
-| `sides` | public ports to weigh: `{name: {runner, repo, commit, licence, line, source, causes}}`; `runner` is `java:<dir>` or a command; `source` is the folder holding the port's code, and `causes` lists known defects `{what, port: file:first-last, cobol: [file:first-last], fields}` for explain. `sides.local`, when present, says how the port under test is built and run |
-| `gate` | optional: the port a commit to this case is gated on, `{side, sources}`, a declared side and the globs of its committed sources (see below). Without it the side under test is `local`, with sources `port/**/*.java` and `port/MAIN` |
-| `expected` | the verdict `reproduce` expects for each side |
-| `accepted` | differences a person has signed (see below) |
+Tare treats the **original program as the answer key**. It replays that COBOL under GnuCOBOL, runs the port on the same inputs, and weighs every record and every field. A blocking gate inside IBM Bob — and git hooks for every other client — refuses a commit while the last weigh is red, missing, or stale. Bob cannot argue the numbers away. The records have to balance.
 
-`python -m tare contract` writes the port contract for Bob's replay skill (`.bob/skills/replay/PORT_CONTRACT.md`) from these layouts. `python -m tare reproduce` rebuilds the answer key, runs every side and prints a scoreboard; `python -m tare check <side>` does the same for one side and writes the ledger to the GitHub step summary.
+<p align="center">
+  <img src="assets/architecture.svg" alt="Replay, run port, weigh, explain, gate." width="100%">
+</p>
 
-## How Bob uses it
+## The proof: one Bob session
 
-Everything lives in `.bob/`, so anyone who opens the repository in Bob gets the same workflow:
+Recorded in IBM Bob IDE (2026-09-26). One prompt. **3.74 Bobcoins.** Stills in [`bob_sessions/`](bob_sessions/).
 
-| Piece | File | What it does |
+1. Bob tries to commit the published port → **blocked** (no weigh on record).
+2. Bob weighs → **red, 408 of 408**.
+3. Two **parallel subagents** diagnose the fee fields and the totals.
+4. Bob swaps the fee rates → commit refused again (**port changed after its weigh**).
+5. First totals guess adds `mcttse` → **296** records still differ.
+6. `explain` shows the COBOL never writes `mcttse` there; the missing term is `tctom` (household-waste tax).
+7. Weigh → **balanced, 408 of 408**. Commit goes through: port `9ee1c3c`.
+
+<p align="center">
+  <img src="assets/bob_strip.svg" alt="Bob session strip: blocked, red, subagents, stale edit, wrong guess, balanced, committed." width="100%">
+</p>
+
+<p align="center">
+  <img src="bob_sessions/tare_task01_01_first_block_no_weigh.png" alt="Blocked: no weigh" width="19%">
+  <img src="bob_sessions/tare_task01_02_weigh_red_408_of_408.png" alt="Red 408 of 408" width="19%">
+  <img src="bob_sessions/tare_task01_03_two_subagents_running.png" alt="Two parallel subagents" width="19%">
+  <img src="bob_sessions/tare_task01_05_stale_edit_block.png" alt="Stale edit blocked" width="19%">
+  <img src="bob_sessions/tare_task01_07_balanced_408_of_408.png" alt="Balanced 408 of 408" width="19%">
+</p>
+<p align="center">
+  <img src="bob_sessions/tare_task01_06_wrong_guess_296_still_differ.png" alt="Wrong guess mcttse, 296 still differ" width="32%">
+  <img src="bob_sessions/tare_task01_08_committed_task_summary_3.74.png" alt="Committed, 3.74 Bobcoins" width="32%">
+  <img src="bob_sessions/tare_task01_09_bob_final_summary.png" alt="Bob closing summary" width="32%">
+</p>
+
+## Examples
+
+### France property tax (taxe foncière)
+
+DGFiP built-property calculator, 2018. Ain demo slice and full national run. Commune records from REI open data — not household bills.
+
+<p align="center">
+  <img src="assets/france_scales.svg" alt="Published port red nationally; repaired port balanced." width="100%">
+</p>
+<p align="center">
+  <img src="assets/scale_published.png" alt="National scale: published port red" width="48%">
+  &nbsp;
+  <img src="assets/scale_repaired.png" alt="National scale: repaired port balanced" width="48%">
+</p>
+
+| Side | Ain | National |
 |---|---|---|
-| Mode `Tare` | `.bob/custom_modes.yaml`, `.bob/rules-tare/` | A modernization engineer for whom the original program is the answer key. Its edit tool reaches only `port/` and `docs/`; the hook covers the shell. |
-| MCP server `tare` | `.bob/mcp.json`, `tare/mcp_server.py` | `run_mainframe`, `run_port`, `weigh` (a ledger plus an image of the scale) and `explain`. |
-| Hook | `.bob/settings.json`, `tare/gate.py` | A blocking `PreToolUse` hook that finds the repository from any subfolder. It exits with code 2 on any git command that commits or pushes while, in any case the commit touches, the port's last weigh is red, the port changed after it, or the protected paths differ from git HEAD. Completion is allowed, with a notice. |
-| Skill `replay` | `.bob/skills/replay/` | Plan, port, weigh, explain, fix, weigh again, commit. |
-| Commands | `.bob/commands/prove.md`, `judge.md` | `/prove <program>` ports and proves; `/judge all` weighs the declared sides with parallel subagents. |
+| Published AI port (`java-ai`) | 408 of 408 red | 35,268 of 35,389 red |
+| Repaired (`java-ai-fixed` / Bob's `local` port) | 0 of 408 | 0 of 35,389 |
 
-The MCP server and the CLI find the case as the nearest folder at or above the working directory that holds `tare.json`, or the folder named by `TARE_ROOT`.
+### Medicare hospice pricer
 
-## What the gate guarantees
+CMS FY2021 Hospice Pricer COBOL as the answer key. 5,000 claims built from public CMS tables (no personal data).
 
-The gate stops an agent's honest mistakes and casual workarounds inside Bob. The CI check on a clean runner is the backstop against deliberate tampering.
+| Side | Records differing |
+|---|---|
+| CMS's own Java (`cms-java`) | **140 of 5,000** |
+| AI-assisted port (`java-ai`) | **270 of 5,000** |
+| Repaired (`java-ai-fixed`) | **0 of 5,000** |
 
-- **A weigh describes the current port.** `weigh local` reruns the port when a source, `port/MAIN`, an input file or the output changed since the port's last run (recorded in `work/runs/local/provenance.json`). The gate checks the weigh record against the current sources.
-- **The port does not see the answer key.** It runs in `work/sandbox/local/`, which holds only copies of the input files and the compiled classes. A port that opens an absolute path or climbs out with `../` is deliberate tampering, out of scope like the items below.
-- **Every case a commit touches is weighed.** The gate checks the case the command acts on, then every other case in the repository with a change in the working tree or the index. Each case gets the same four rules: no weigh on record blocks, a red last weigh blocks, a port changed after its weigh blocks, and a balanced weigh of the unchanged port allows. The France case gates on `local` (`port/`); the Medicare hospice case declares `"gate": {"side": "java-ai-fixed", "sources": ["sides/ai_port_fixes.json", "sides/fix_port.py"]}`, so an edit to its repairs needs a new weigh, and a weigh of the recorded fixture is not enough once those files differ from HEAD: the edited port has to be run (`python -m tare run-port java-ai-fixed`) and weighed.
-- **The policy is fixed in code.** The answer key is always `fixtures/answer_key/records.json`. The side under test is `local`, with sources `port/**/*.java` and `port/MAIN`, unless the case's committed `tare.json` declares `gate`; the gate reads that field only while `tare.json` equals git HEAD, and its sources can never name `tare.json`, `fixtures/`, `mainframe/`, `tare/` or `.bob/`. A declared source under `sides/` is the one part of `sides/` that may differ from HEAD. A commit is blocked while `tare.json`, `fixtures/`, `mainframe/`, `sides/`, `tare/` or `.bob/` differ from git HEAD in the working tree or the index, including when the case sits in a subfolder of the repository. The one tolerated change is the `alwaysAllow` lists in `.bob/mcp.json`, which Bob's "Always allow" toggle writes; any other change there still blocks.
-- **The port can be a repository of its own.** When `port/` is a git clone (a published port, kept under its own licence and ignored by this repository), `python -m tare install-hooks --repo port` installs the hooks in the clone: a commit made there (`git -C cases/<case>/port commit`, or from inside `port/`) is refused while the case's weigh is red or stale, or while the case's protected paths differ from HEAD in the repository that holds the case. The Bob hook sends a `git -C <dir>` command to the case holding `<dir>`.
-- **An accepted difference is signed, exact and sealed.** An entry is `{file, key, fields, expect, reason, accepted_by, date, seal}` and covers only the listed fields of the one record it names. `expect: {field: value}` pins exact values; `expect: "answer_key"` pins the answer key's values. The answer key's own values always pass; any other value is red, and the ledger row shows the value expected. Missing and extra records are never accepted. A person adds an entry with `python -m tare accept --key <key> --by "<name>" --reason "<text>"` and removes it with `python -m tare accept --revoke --key <key>`; the `tare.json` that command writes can be committed, and an entry edited by hand no longer matches its seal and covers nothing.
-- **Every git route is covered.** `python -m tare install-hooks` installs git `pre-commit`, `pre-merge-commit`, `pre-push`, `pre-rebase`, `pre-applypatch` and `reference-transaction` hooks that apply the same rule to any git client: aliases, scripts, subprocesses, other editors. The last one vetoes any branch advance, which covers `cherry-pick` and `revert` (git runs no pre-commit hook for them); a vetoed one leaves its changes staged and HEAD where it was. Git commands are matched in any letter case.
-- **Bob can always finish.** Completion while red is allowed with a notice, so Bob is never trapped in a task it cannot finish; the red port still cannot be committed.
+The gate now checks **every case a commit touches**, on the side each case declares (France: `local` / `port/`; Medicare: `java-ai-fixed` through its repair files). Commits `b50d981`, `4aa53e5`.
 
-Out of scope by design: forging `.tare/` records or the provenance file, `git commit --no-verify`, and `TARE_MAINTAINER=1`, the maintainers' switch that lets git's hooks commit changes to protected files (the Bob hook ignores it).
+<p align="center">
+  <img src="assets/results.svg" alt="Results table for France and Medicare." width="100%">
+</p>
 
-The same check is a GitHub Actions workflow, `.github/workflows/tare-check.yml`, which another repository can call with `workflow_call`.
+## The gate
 
-## The self-test fixture
+<p align="center">
+  <img src="assets/gate.svg" alt="Gate states: no weigh, red, stale edit block; balanced allows." width="100%">
+</p>
 
-`examples/unitsum/` is a test fixture, not a case: a small COBOL program written for the test suite that totals shipping weights per item id, with a correct Java port and one that rounds half-up. The tests run the whole loop on it (answer key under GnuCOBOL, both ports weighed, gate exit codes, accept, explain).
-
+```mermaid
+flowchart LR
+  A[git commit] --> B{Weigh on record?}
+  B -->|no| X[BLOCK]
+  B -->|yes| C{Verdict?}
+  C -->|red| X
+  C -->|balanced| D{Sources unchanged?}
+  D -->|no · stale| X
+  D -->|yes| E[ALLOW]
 ```
-python -m unittest discover -s tests -t .
-cd examples/unitsum
-PYTHONPATH=../.. python -m tare reproduce --offline   # seconds, Python only
-PYTHONPATH=../.. python -m tare reproduce             # GnuCOBOL and a JDK >= 17
+
+A PreToolUse hook finds the repo from any subfolder. Git `pre-commit` / `pre-push` / related hooks apply the same rule outside Bob. Completion while red is allowed with a notice so Bob is never trapped; the red port still cannot be committed.
+
+## Under the hood
+
+- **GnuCOBOL harness** generated from `tare.json`: loaders/unloaders for indexed files, PARM drivers, CEE3ABD stub.
+- **Layouts** decode fixed-width output: COMP-3 packed decimal, zoned numerals, overpunch signs.
+- **Answer-key soundness** check before `records.json` is written: invalid packed or zoned bytes stop the run.
+- **Schema ledger** counts differing records and fields, missing/extra keys, and per-field net.
+- **`explain`** expands `COPY … REPLACING`, cites COBOL and port lines, and shows arithmetic when operands are in the record.
+- **`.bob` plugin**: custom mode `Tare`, rules, `replay` skill, `/prove` and `/judge`, MCP tools `run_mainframe` / `run_port` / `weigh` / `explain`, parallel subagents.
+- **Case `gate` field**: each case names the side a commit must balance.
+
+## Reproduce
+
+```bash
+git clone https://github.com/Yazan-O/tare
+cd tare
+python -m tare reproduce --offline
+# seconds, Python only:
+#   java-ai        red       408 of 408
+#   java-ai-fixed  balanced  0 of 408
+
+cd cases/medicare_hospice
+PYTHONPATH=../.. python -m tare reproduce --offline
+#   cms-java       red       140 of 5,000
+#   java-ai        red       270 of 5,000
+#   java-ai-fixed  balanced  0 of 5,000
 ```
 
-The devcontainer (`.devcontainer/`) has every toolchain.
+Live site (commune search): https://yazan-o.github.io/tare/
 
-## Layout
+With a JDK ≥ 17 and Maven: `python -m tare fetch --local` then `python -m tare weigh --port local`.
 
-- `tare/`: the answer-key runner, record decoding, the ledger, the gate, the MCP server, the scale and the CLI.
-- `.bob/`: the mode, rules, skill, commands, hook and MCP configuration for IBM Bob.
-- `tests/`: the test suite.
-- `examples/unitsum/`: the self-test fixture.
-- `cases/taxe_fonciere/`: the case the repository opens on, real public data run through the French property tax calculator of 2018 (see its README).
+## Data sources
+
+| Source | Use | Licence |
+|---|---|---|
+| [DGFiP property-tax COBOL](https://github.com/etalab/taxe-fonciere) @ 6bd40b2 | answer key | CeCILL-2.1 |
+| [Java port](https://github.com/omnipede/taxe-fonciere) @ 5124d1c | port under test | CeCILL-2.1 |
+| REI 2018, data.gouv.fr | commune inputs | Licence Ouverte 2.0 |
+| IGN ADMIN EXPRESS COG 2018 | map boundaries | Licence Ouverte 2.0 |
+| [CMS FY2021 Hospice Pricer](https://www.cms.gov/pricersourcecodesoftware) | Medicare answer key + tables | U.S. Government work |
+| CMS Hospice Pricer 2.5.1 (Java) | `cms-java` side | FOIA transparency release |
+| [rcaran/hospice-cms-pricer-java](https://github.com/rcaran/hospice-cms-pricer-java) @ 6558476 | AI-assisted port | no licence file in upstream |
+
+No personal information. Medicare claims are constructed from public tables.
 
 ## Licence
 
-MIT (`LICENSE`). The fonts in `tare/assets/fonts/` are under the SIL Open Font Licence.
+MIT (`LICENSE`). Fonts in `tare/assets/fonts/` are SIL Open Font Licence.

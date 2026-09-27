@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="t d">
+  <title id="t">How Tare works</title>
+  <desc id="d">Replay the COBOL, run the port, weigh every field, explain differences, gate the commit.</desc>
+  <rect width="1280" height="420" fill="#FEFEFE"/>
+  <text x="48" y="48" font-family="Consolas, monospace" font-size="16" letter-spacing="0.1em" fill="#6B6B6B">HOW IT WORKS</text>
+  <text x="48" y="90" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="600" fill="#1E1E1E">Original program in, balanced commit out.</text>
+
+  <g font-family="Arial, Helvetica, sans-serif">
+    <rect x="48" y="140" width="200" height="180" fill="#F3F3F3" stroke="#1E1E1E" stroke-width="1.5"/>
+    <text x="64" y="178" font-family="Consolas, monospace" font-size="14" fill="#6B6B6B">01</text>
+    <text x="64" y="218" font-size="22" font-weight="600" fill="#1E1E1E">Replay</text>
+    <text x="64" y="252" font-size="15" fill="#6B6B6B">GnuCOBOL runs</text>
+    <text x="64" y="276" font-size="15" fill="#6B6B6B">the original job.</text>
+    <text x="64" y="300" font-size="15" fill="#6B6B6B">Output is the key.</text>
+
+    <path d="M258 230 L278 230" stroke="#1E1E1E" stroke-width="2"/>
+
+    <rect x="288" y="140" width="200" height="180" fill="#F3F3F3" stroke="#1E1E1E" stroke-width="1.5"/>
+    <text x="304" y="178" font-family="Consolas, monospace" font-size="14" fill="#6B6B6B">02</text>
+    <text x="304" y="218" font-size="22" font-weight="600" fill="#1E1E1E">Run port</text>
+    <text x="304" y="252" font-size="15" fill="#6B6B6B">Same inputs,</text>
+    <text x="304" y="276" font-size="15" fill="#6B6B6B">sandbox only,</text>
+    <text x="304" y="300" font-size="15" fill="#6B6B6B">same layouts.</text>
+
+    <path d="M498 230 L518 230" stroke="#1E1E1E" stroke-width="2"/>
+
+    <rect x="528" y="140" width="200" height="180" fill="#FEFEFE" stroke="#C8102E" stroke-width="2.5"/>
+    <text x="544" y="178" font-family="Consolas, monospace" font-size="14" fill="#C8102E">03</text>
+    <text x="544" y="218" font-size="22" font-weight="600" fill="#1E1E1E">Weigh</text>
+    <text x="544" y="252" font-size="15" fill="#6B6B6B">Every record,</text>
+    <text x="544" y="276" font-size="15" fill="#6B6B6B">every field,</text>
+    <text x="544" y="300" font-size="15" fill="#6B6B6B">ledger + scale.</text>
+
+    <path d="M738 230 L758 230" stroke="#1E1E1E" stroke-width="2"/>
+
+    <rect x="768" y="140" width="200" height="180" fill="#F3F3F3" stroke="#1E1E1E" stroke-width="1.5"/>
+    <text x="784" y="178" font-family="Consolas, monospace" font-size="14" fill="#6B6B6B">04</text>
+    <text x="784" y="218" font-size="22" font-weight="600" fill="#1E1E1E">Explain</text>
+    <text x="784" y="252" font-size="15" fill="#6B6B6B">COBOL lines,</text>
+    <text x="784" y="276" font-size="15" fill="#6B6B6B">COPY REPLACING,</text>
+    <text x="784" y="300" font-size="15" fill="#6B6B6B">port cause.</text>
+
+    <path d="M978 230 L998 230" stroke="#1E1E1E" stroke-width="2"/>
+
+    <rect x="1008" y="140" width="224" height="180" fill="#1E1E1E"/>
+    <text x="1024" y="178" font-family="Consolas, monospace" font-size="14" fill="#C8102E">05</text>
+    <text x="1024" y="218" font-size="22" font-weight="600" fill="#FEFEFE">Gate</text>
+    <text x="1024" y="252" font-size="15" fill="#B0B0B0">PreToolUse + git.</text>
+    <text x="1024" y="276" font-size="15" fill="#B0B0B0">Red or stale:</text>
+    <text x="1024" y="300" font-size="15" fill="#FEFEFE">no commit.</text>
+  </g>
+  <text x="48" y="380" font-family="Consolas, monospace" font-size="15" fill="#6B6B6B">IBM Bob plugin: mode | MCP | skills | parallel subagents | hooks</text>
+</svg>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="t d">
+  <title id="t">Tare - Close enough does not commit</title>
+  <desc id="d">Banner: the original program is the answer key; a red port cannot be committed.</desc>
+  <rect width="1280" height="420" fill="#FEFEFE"/>
+  <rect x="0" y="0" width="8" height="420" fill="#C8102E"/>
+  <text x="64" y="72" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" letter-spacing="0.12em" fill="#6B6B6B">TARE | IBM BOB 2.0</text>
+  <text x="64" y="180" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="600" fill="#1E1E1E">Close enough</text>
+  <text x="64" y="256" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="600" fill="#C8102E">doesn&#39;t commit.</text>
+  <text x="64" y="330" font-family="Consolas, monospace" font-size="20" fill="#6B6B6B">The original COBOL is the answer key. Every record is weighed.</text>
+  <g transform="translate(980,110)">
+    <line x1="40" y1="20" x2="140" y2="20" stroke="#1E1E1E" stroke-width="3"/>
+    <line x1="90" y1="20" x2="90" y2="70" stroke="#1E1E1E" stroke-width="3"/>
+    <line x1="20" y1="70" x2="160" y2="110" stroke="#1E1E1E" stroke-width="3"/>
+    <rect x="8" y="68" width="56" height="36" fill="#FEFEFE" stroke="#1E1E1E" stroke-width="2"/>
+    <rect x="116" y="108" width="56" height="36" fill="#C8102E" stroke="#1E1E1E" stroke-width="2"/>
+    <text x="36" y="92" text-anchor="middle" font-family="Consolas, monospace" font-size="14" fill="#1E1E1E">COBOL</text>
+    <text x="144" y="132" text-anchor="middle" font-family="Consolas, monospace" font-size="14" fill="#FEFEFE">PORT</text>
+    <text x="90" y="180" text-anchor="middle" font-family="Consolas, monospace" font-size="16" font-weight="600" fill="#C8102E">RED</text>
+  </g>
+</svg>
