@@ -1,6 +1,7 @@
-# Tare: The Parity Gate for IBM Bob
+# Tare: Legacy Code Migration Parity Gate for IBM Bob
 
 [![IBM Bob 2.0 Hackathon](https://img.shields.io/badge/IBM%20Bob-2.0%20Hackathon-0F62FE?style=for-the-badge&logo=ibm)](https://lablab.ai)
+[![Legacy Code Migration](https://img.shields.io/badge/Legacy%20Code%20Migration-100%25%20Bit--Exact%20Parity-blueviolet?style=for-the-badge)](#the-legacy-code-migration-paradox)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 [![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?style=for-the-badge&logo=python)](https://python.org)
 [![GnuCOBOL 3.2](https://img.shields.io/badge/COBOL-GnuCOBOL%203.2-00599C?style=for-the-badge)](https://gnucobol.sourceforge.io)
@@ -10,7 +11,7 @@
 **A deterministic dual-execution oracle and Model Context Protocol (MCP) gate that prevents AI coding agents from committing migrated legacy code until every record balances with 100% bit-exact parity against the original COBOL.**
 
 <p align="center">
-  <img src="assets/cover_image.jpg" alt="Tare: The Parity Gate for IBM Bob" width="100%">
+  <img src="assets/cover_image.jpg" alt="Tare: Legacy Code Migration with IBM Bob" width="100%">
 </p>
 
 <p align="center">
@@ -19,6 +20,26 @@
   <a href="#the-proof-one-bob-session"><strong>⚡ 3.74 Bobcoin Recorded Take</strong></a> &nbsp;•&nbsp;
   <a href="#reproduce--benchmark-matrix"><strong>🔬 Offline Benchmark Reproduction</strong></a>
 </p>
+
+---
+
+## ⚖️ The Legacy Code Migration Paradox
+
+```text
+❌ The "Vibe Migration" Trap (How 99% of Teams Modernize Legacy Code Today):
+┌──────────────┐     LLM Prompt     ┌──────────────┐     LLM Writes Tests     ┌──────────────┐
+│ Legacy COBOL │ ─────────────────> │ Modern Java  │ ───────────────────────> │  Unit Tests  │ ──> 4 of 4 PASS! (Fake Confidence)
+└──────────────┘                    └──────────────┘                          └──────────────┘     └──> 35,268 Silent Production Errors!
+
+✅ The Tare Deterministic Migration Engine:
+┌──────────────┐    GnuCOBOL 3.2    ┌──────────────┐
+│ Legacy COBOL │ ─────────────────> │  Answer Key  │ ──┐
+└──────────────┘                    └──────────────┘   │     ┌──────────────┐
+                                                       ├─==> │  Tare Scale  │ ──> BALANCED (0 Diffs) ──> Safe Commit 9ee1c3c!
+┌──────────────┐    Target Runtime  ┌──────────────┐   │     └──────────────┘
+│ Modern Java  │ ─────────────────> │ Port Output  │ ──┘
+└──────────────┘                    └──────────────┘
+```
 
 ---
 
