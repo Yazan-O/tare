@@ -504,6 +504,12 @@ def explain(root: Path, file=None, key=None, field=None, port=None, answer=None)
                 delta = ""
         o.append(f"   port        {pv}{delta}" + ("   (same)" if ledger.same(av, pv, numeric) else ""))
 
+    missing = [s for s in (cfg.get("cobol") or {}).get("sources") or [] if not (root / s).is_file()]
+    if missing:
+        fetch = "run: python fetch.py" + (f" (in {root})" if (root / "fetch.py").is_file() else "")
+        o += ["", f"The COBOL is not on this machine ({', '.join(missing)}): {fetch}, then explain again."]
+        return "\n".join(o)
+
     entries = data_entries(root, cfg)
     ent = next((e for e in entries if e["name"] == cobol), None)
     groups = set(ent["groups"]) if ent else set()
