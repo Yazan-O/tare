@@ -222,7 +222,28 @@
 
   /* ---------- gate ---------- */
   const shots = BOB_SHOTS.length ? BOB_SHOTS : RUN.scale;
-  $("shots").innerHTML = shots.map(s => `<figure><img src="${esc(s.src)}" alt="${esc(s.caption)}"><figcaption>${esc(s.caption)}</figcaption></figure>`).join("");
+  $("shots").innerHTML = shots.map(s => `<figure><a href="${esc(s.src)}"><img src="${esc(s.src)}" alt="${esc(s.caption)}" loading="lazy"></a><figcaption>${esc(s.caption)}</figcaption></figure>`).join("");
   $("runlog").innerHTML = RUN.log.map(l => /^TARE RED/.test(l) ? `<span class="r">${esc(l)}</span>` : esc(l)).join("\n");
   $("foot-data").textContent = `National replay ${RUN.date}; ${fmt(N)} commune records`;
+
+  /* ---------- act two: Medicare hospice (data/medicare.js, site/tools/medicare_facts.py) ---------- */
+  const V = window.TARE_MEDICARE.values, C = V.claims;
+  const row = (who, code, n, what, red) =>
+    `<tr><td>${who}<span class="code">${code}</span><span class="where-s">${what}</span></td>${cells(n, C, red)}<td class="where">${what}</td></tr>`;
+  $("med-table").innerHTML =
+    '<thead><tr><th>Java port</th><th>Claims that differ</th><th class="where" style="text-align:left">Where</th></tr></thead><tbody>' +
+    row("CMS's own Java migration", "Hospice Pricer 2.5.1", V.cms_java_differ,
+      `The claim total only, one cent each (${V.cms_java_cents_total} in all): it rounds after adding, the COBOL before. Every line payment matches.`, true) +
+    row("AI-assisted port", "rcaran, README claims functional parity", V.java_ai_differ,
+      `${fmt(V.java_ai_differ_chc)} of the ${fmt(V.chc_claims)} claims that bill continuous home care; ${fmt(V.java_ai_differ_non_chc)} of the other ${fmt(V.non_chc_claims)}. Three defects: a short care day counted as a routine day, the return code that follows, an hourly rate rounded instead of truncated.`, true) +
+    row("The same port, three repairs", "five line edits, each checked by SHA-256", V.java_ai_fixed_differ,
+      "Every field of every claim equals the COBOL's.", false) + "</tbody>";
+  const EX = [["C00002", "total", "Claim total, $"], ["C00082", "high", "High-rate routine days"],
+    ["C00033", "rtc", "Return code"], ["C00408", "pay_chc", "Continuous home care line, $"]];
+  $("med-examples").innerHTML = '<thead><tr><th>Claim</th><th style="text-align:left">Field</th><th>COBOL</th><th>Port</th><th class="side" style="text-align:left">Side</th></tr></thead><tbody>' +
+    EX.map(([c, f, l]) => { const [a, p, s] = V[`ex_${c}_${f}`];
+      return `<tr><td class="mono">${c}</td><td style="text-align:left;font-family:var(--font)">${l}</td><td>${esc(a)}</td><td class="diff">${esc(p)}</td><td style="text-align:left" class="muted side">${s === "cms-java" ? "CMS's Java" : "AI-assisted port"}</td></tr>`; }).join("") + "</tbody>";
+  $("med-units").textContent = `The ${fmt(C)} claims are constructed from public CMS tables with a fixed seed; no claim is a real claim and no person's data exists. ` +
+    `${fmt(V.chc_claims)} of them bill continuous home care, far more than real hospice, where routine home care is ${V.medpac_rhc_share} of covered days, so the rate to quote is ${fmt(V.java_ai_differ_chc)} of ${fmt(V.chc_claims)} continuous-home-care claims. ` +
+    `For scale, MedPAC reports that Medicare's hospice payment system paid about ${V.medpac_hospice_2024} in 2024. The finding is behaviour, not dollars: two ports that answer differently from the program they replace.`;
 })();

@@ -104,6 +104,9 @@ pre .c{color:var(--ink-2)}
 .srcs{list-style:none;max-width:900px;margin-top:24px}
 .srcs li{display:grid;grid-template-columns:180px minmax(0,1fr);gap:16px;border-top:1px solid var(--line);padding:14px 0;font-size:14px}
 .srcs li .label{padding-top:2px}
+.srcs .mono{word-break:break-all}
+#med-table td.where{white-space:normal;text-align:left;font:400 14px/1.45 var(--font);max-width:34em}
+#med-table .where-s{display:none}
 footer{margin:96px 0 48px;padding-top:18px;border-top:1px solid var(--line);font:400 12px/1.5 var(--mono);color:var(--ink-2);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .skip{position:absolute;left:-9999px}
 @media (max-width:980px){
@@ -127,6 +130,9 @@ footer{margin:96px 0 48px;padding-top:18px;border-top:1px solid var(--line);font
  #card td{font-size:12px;padding-left:6px}
  #card th{padding-left:6px}
  .toggle button{padding:11px 12px}
+ #med-table .where,#med-table th.where{display:none}
+ #med-table .where-s{display:block;font:400 13px/1.45 var(--font);color:var(--ink);margin-top:8px}
+ #med-examples .side{display:none}
 }
 @media (prefers-reduced-motion:no-preference){main{animation:in .2s ease-out}@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}
 </style>
@@ -136,7 +142,7 @@ footer{margin:96px 0 48px;padding-top:18px;border-top:1px solid var(--line);font
 <div class="wrap">
 <nav>
   <a class="mark" href="#top">Tare</a>
-  <span class="links"><a href="#counts">Counts</a><a href="#search">Search</a><a href="#map">Map</a><a href="#gate">Gate</a><a href="#reproduce">Reproduce</a><a class="gh" href="https://github.com/Yazan-O/tare">GitHub</a></span>
+  <span class="links"><a href="#counts">Counts</a><a href="#search">Search</a><a href="#map">Map</a><a href="#gate">In Bob</a><a href="#medicare">Medicare</a><a href="#reproduce">Reproduce</a><a class="gh" href="https://github.com/Yazan-O/tare">GitHub</a></span>
 </nav>
 <main id="top">
 
@@ -224,13 +230,25 @@ footer{margin:96px 0 48px;padding-top:18px;border-top:1px solid var(--line);font
 </section>
 
 <section id="gate">
-  <h2>Tare blocks Bob's <span class="mono">git commit</span> until every record balances.</h2>
-  <p class="lede">Tare weighs the port inside IBM Bob. A red weigh blocks the commit; the same commit goes through once the repaired port balances on every record.</p>
+  <h2>In IBM Bob, Tare held the commit until the port balanced.</h2>
+  <p class="lede" id="gate-lede">One recorded IBM Bob IDE session, 2026-09-26. Bob tried to ship the published port and Tare stopped the commit. Bob weighed the port, sent the fee fields and the total fields to two subagents in parallel, fixed the fee rates, and was stopped again because the port had changed since its weigh. Its first guess for the totals left the weigh red; the COBOL line that <span class="mono">explain</span> pointed to gave the right one. Balanced, then the same commit went through.</p>
   <div class="shots" id="shots"></div>
   <div class="log">
     <p class="label">The national replay, as Tare printed it</p>
     <pre id="runlog"></pre>
   </div>
+</section>
+
+<section id="medicare">
+  <p class="label">Act two · US Medicare hospice pricing</p>
+  <h2>Another agency's COBOL, the same test: CMS's FY2021 hospice pricer is the answer key.</h2>
+  <p class="lede">Tare runs CMS's own hospice pricer (HOSDR210 and HOSPR210, a U.S. Government work) unmodified under GnuCOBOL, and weighs two Java ports against it, claim by claim, on all fourteen priced fields.</p>
+  <table class="counts" id="med-table"></table>
+  <div class="log">
+    <p class="label">One claim per defect</p>
+    <div style="overflow-x:auto"><table id="med-examples"></table></div>
+  </div>
+  <p class="units" id="med-units"></p>
 </section>
 
 <section id="reproduce">
@@ -242,7 +260,10 @@ python -m tare reproduce --offline
 <span class="c"># every commune, fresh: GnuCOBOL, a JDK 17+ and Maven (cases/taxe_fonciere/README.md)</span>
 cd cases/taxe_fonciere &amp;&amp; python fetch.py --full &amp;&amp; cd full
 PYTHONPATH=../../.. python -m tare answer-key
-PYTHONPATH=../../.. python -m tare reproduce</pre>
+PYTHONPATH=../../.. python -m tare reproduce
+
+<span class="c"># act two: the 5,000 hospice claims, from the committed fixtures (from the repository root)</span>
+cd cases/medicare_hospice &amp;&amp; PYTHONPATH=../.. python -m tare reproduce --offline</pre>
 </section>
 
 <section id="sources">
@@ -253,6 +274,9 @@ PYTHONPATH=../../.. python -m tare reproduce</pre>
     <li><span class="label">Repaired port</span><span>The same port with the two fixes above, applied in a build copy by <span class="mono">cases/taxe_fonciere/sides/java_port.py</span>.</span></li>
     <li><span class="label">Input data</span><span>REI 2018, <a href="https://www.data.gouv.fr/datasets/impots-locaux-fichier-de-recensement-des-elements-dimposition-a-la-fiscalite-directe-locale-rei-4">Impôts locaux : fichier de recensement des éléments d'imposition à la fiscalité directe locale</a>, Direction générale des Finances publiques, <a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence">Licence Ouverte / Open Licence 2.0</a>. Commune-level totals and rates, no personal data. The results on this page are derived from it.</span></li>
     <li><span class="label">Commune shapes</span><span>ADMIN EXPRESS COG, edition 2018-04-03, <a href="https://www.data.gouv.fr/datasets/admin-express-admin-express-cog-admin-express-cog-carto-admin-express-cog-carto-pe-admin-express-cog-carto-plus-pe">IGN</a>, Licence Ouverte / Open Licence 2.0. Simplified for this page.</span></li>
+    <li><span class="label">Act two answer key</span><span>CMS's FY2021 Hospice Pricer, mainframe release (HOSDR210, HOSPR210, HOSPRATE, CBSA2021), <a href="https://www.cms.gov/files/zip/fy-20210-hospice-mf-software-v210-claims-dated-100120-093021-posted-11172020.zip">cms.gov</a>, pinned by SHA-256. A work of the U.S. Government (17 U.S.C. §105). Fetched at run time.</span></li>
+    <li><span class="label">Act two ports</span><span>CMS's Java migration, Hospice Pricer 2.5.1, <a href="https://www.cms.gov/pricersourcecodesoftware">cms.gov/pricersourcecodesoftware</a>, a FOIA release. The AI-assisted port <a href="https://github.com/rcaran/hospice-cms-pricer-java">rcaran/hospice-cms-pricer-java</a> @ 6558476, no licence file; its README claims functional parity for FY1998 to FY2021. Both fetched at run time, never committed. The repairs are line edits checked by SHA-256 (<span class="mono">cases/medicare_hospice/sides/ai_port_fixes.json</span>).</span></li>
+    <li><span class="label">Act two claims</span><span>5,000 claims constructed from public CMS tables (the FY2021 wage-index file, the revenue codes and unit limits in the COBOL), seed 20260926, one dummy provider. No claim is a real claim; no person's data exists. Scale: <a href="https://www.medpac.gov/wp-content/uploads/2026/03/Mar26_Ch10_MedPAC_Report_To_Congress_SEC.pdf">MedPAC, March 2026 report to Congress, chapter 10</a>.</span></li>
     <li><span class="label">Fonts</span><span>Archivo and JetBrains Mono, SIL Open Font License 1.1 (<a href="fonts/Archivo-OFL.txt">Archivo</a>, <a href="fonts/JetBrainsMono-OFL.txt">JetBrains Mono</a>).</span></li>
     <li><span class="label">Tare</span><span><a href="https://github.com/Yazan-O/tare">github.com/Yazan-O/tare</a>, MIT.</span></li>
   </ul>
@@ -263,11 +287,19 @@ PYTHONPATH=../../.. python -m tare reproduce</pre>
 </div>
 
 <script>
-/* Bob session screenshots: add {src: "img/<file>.png", caption: "..."} entries. Empty: Tare's own scale images are shown. */
-const BOB_SHOTS = [];
+/* The owner's IBM Bob IDE session, 2026-09-26: crops of the recording's stills (bob_sessions/, site/tools/crop_bob_shots.py). */
+const BOB_SHOTS = [
+  {src: "img/bob_1_blocked.png", caption: "1. Bob tries to commit the published port. Refused: Tare holds the commit until the port has been weighed."},
+  {src: "img/bob_2_subagents.png", caption: "2. Red: 408 of 408 Ain commune records differ. Bob gives the fee fields and the total fields to two subagents, running in parallel."},
+  {src: "img/bob_3_stale_edit.png", caption: "3. Bob fixes the fee rates and tries the same commit. Refused again: the port changed after its weigh."},
+  {src: "img/bob_4_wrong_guess.png", caption: "4. Bob's first guess for the totals is wrong. The weigh stays red on 296 records, so Bob asks explain what the COBOL computes."},
+  {src: "img/bob_5_balanced.png", caption: "5. The right line: the household-waste tax joins the total before fees. Balanced, 408 of 408."},
+  {src: "img/bob_6_committed.png", caption: "6. The same commit goes through (9ee1c3c), with Bob's own account of both defects. The counter reads 3.74 Bobcoins."},
+];
 </script>
 <script src="data/communes.js"></script>
 <script src="data/run.js"></script>
+<script src="data/medicare.js"></script>
 <script src="data/map.js"></script>
 <script src="app.js"></script>
 </body>
