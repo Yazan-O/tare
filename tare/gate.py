@@ -16,8 +16,9 @@ that opens the answer key by absolute path, `git commit --no-verify`, TARE_MAINT
 Policy fixed in code, not read from tare.json: the side under test is 'local', its sources are
 port/**/*.java and port/MAIN, and its answer key is fixtures/answer_key/records.json. tare.json, fixtures/,
 mainframe/, sides/, tare/ and .bob/ must equal git HEAD (working tree and index); tare/ and .bob/ are the case
-root's, else the Tare package and the nearest .bob/ above the case root. The one allowed difference is
-tare.json's 'accepted' list when `python -m tare accept` wrote it (sealed in .tare/accept_seal.json).
+root's, else the Tare package and the nearest .bob/ above the case root. Two differences are allowed:
+tare.json's 'accepted' list when `python -m tare accept` wrote it (sealed in .tare/accept_seal.json), and
+'alwaysAllow' lists in .bob/mcp.json, which Bob's Settings write when a tool is set to "Always allow".
 
 Completion (attempt_completion) is allowed even while red, with a notice on stdout and stderr: blocking it
 can trap Bob in a task it cannot finish, and the commit gate already keeps a red port out of history.
@@ -242,6 +243,29 @@ def _sealed_tare_json(root: Path) -> bool:
     return head == now
 
 
+def _without_always_allow(obj):
+    if isinstance(obj, dict):
+        return {k: _without_always_allow(v) for k, v in obj.items() if k != "alwaysAllow"}
+    if isinstance(obj, list):
+        return [_without_always_allow(v) for v in obj]
+    return obj
+
+
+def _always_allow_only(root: Path, top: Path, rel: str) -> bool:
+    """rel (a .bob/mcp.json, relative to top) differs from HEAD only in 'alwaysAllow' lists, in both the
+    working tree and the index. Bob's Settings write those when a user toggles "Always allow" on a tool."""
+    try:
+        head = _git(root, "show", f"HEAD:{rel}")
+        index = _git(root, "show", f":{rel}")
+        if head.returncode or index.returncode:
+            return False
+        want = _without_always_allow(json.loads(head.stdout.decode("utf-8")))
+        return (_without_always_allow(json.loads(index.stdout.decode("utf-8"))) == want
+                and _without_always_allow(json.loads((top / rel).read_text(encoding="utf-8"))) == want)
+    except (OSError, ValueError):
+        return False
+
+
 def protected_changes(root: Path, rec):
     """([changed paths], 'git' | 'record' | None): PROTECTED paths that differ from git HEAD in the working
     tree or index (untracked files included); without git, those whose hash differs from the last weigh.
@@ -269,6 +293,8 @@ def protected_changes(root: Path, rec):
                 else "tare.json"
             if tare_json in paths and _sealed_tare_json(root):
                 paths = [p for p in paths if p != tare_json]
+            paths = [p for p in paths if not ((p == ".bob/mcp.json" or p.endswith("/.bob/mcp.json"))
+                                              and _always_allow_only(root, top, p))]
             return sorted(set(paths)), "git"
     if rec and isinstance(rec.get("protected"), dict):
         now, old = config.hash_protected(root), rec["protected"]

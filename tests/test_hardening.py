@@ -147,6 +147,34 @@ class D3PinnedPolicy(Base):
         self.assertEqual(r.returncode, 2, r.stdout)
         self.assertIn(".bob/settings.json", r.stdout)
 
+    def test_git_always_allow_in_mcp_json_passes_any_other_bob_edit_blocks(self):
+        mcp = self.sb.root / ".bob" / "mcp.json"
+        mcp.parent.mkdir()
+        server = {"command": "python", "args": ["${workspaceFolder}/tare/mcp_server.py"]}
+        mcp.write_text(json.dumps({"mcpServers": {"tare": server}}, indent=2), encoding="utf-8")
+        self.sb.git_init()
+        self.sb.put_run("local", BALANCED)
+        self.assertEqual(self.weigh_local().returncode, 0)
+        # Bob's Settings, "Always allow" on two tools: rewritten file, staged too
+        allowed = dict(server, alwaysAllow=["weigh", "explain"])
+        mcp.write_text(json.dumps({"mcpServers": {"tare": allowed}}), encoding="utf-8")
+        self.assertEqual(self.sb.gate(COMMIT).returncode, 0, self.sb.gate(COMMIT).stdout)
+        self.sb.git("add", ".bob/mcp.json")
+        self.assertEqual(self.sb.gate(COMMIT).returncode, 0)
+        # anything else in the same file is still a change to .bob/
+        mcp.write_text(json.dumps({"mcpServers": {"tare": dict(allowed, args=["other.py"])}}), encoding="utf-8")
+        r = self.sb.gate(COMMIT)
+        self.assertEqual(r.returncode, 2, r.stdout)
+        self.assertIn(".bob/mcp.json", r.stdout)
+        # a clean working tree over a tampered index blocks as well
+        mcp.write_text(json.dumps({"mcpServers": {"tare": allowed}}), encoding="utf-8")
+        self.sb.git("add", ".bob/mcp.json")
+        self.assertEqual(self.sb.gate(COMMIT).returncode, 0)
+        mcp.write_text(json.dumps({"mcpServers": {"tare": dict(allowed, env={"X": "1"})}}), encoding="utf-8")
+        self.sb.git("add", ".bob/mcp.json")
+        mcp.write_text(json.dumps({"mcpServers": {"tare": allowed}}), encoding="utf-8")
+        self.assertEqual(self.sb.gate(COMMIT).returncode, 2)
+
     def test_git_hand_edit_of_accepted_blocks_but_tare_accept_is_sealed(self):
         self.sb.git_init()
         self.sb.put_run("local", BALANCED)
