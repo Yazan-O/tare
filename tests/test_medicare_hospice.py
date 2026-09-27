@@ -18,6 +18,8 @@ from tare import answerkey, config, explain, ledger, records, reproduce
 
 REPO = Path(__file__).resolve().parents[1]
 CASE = REPO / "cases" / "medicare_hospice"
+sys.path.insert(0, str(CASE / "sides"))
+import fix_port  # noqa: E402
 ANSWER = CASE / "fixtures" / "answer_key" / "records.json"
 COMMITTED = CASE / "input" / "billfile.txt"                  # the corpus as committed, one claim a line
 INPUT = CASE / "fixtures" / "answer_key" / "input" / "billfile.dat"   # the same records, no separators
@@ -181,6 +183,17 @@ class VerdictTest(unittest.TestCase):
         self.assertEqual(sum(1 for c in chc if a[c] != b[c]), 270)   # 270 of 776, 35% of them
 
 
+class ExplainWithoutCacheTest(unittest.TestCase):
+    def test_a_fresh_clone_is_told_to_fetch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "case"
+            shutil.copytree(CASE, root, ignore=shutil.ignore_patterns("cache", "work"))
+            text = explain.explain(root, key="C00082", field="high", port="java-ai")
+        self.assertIn("answer key  7", text)
+        self.assertIn("The COBOL is not on this machine (cache/cobol/HOSDR210.cbl, cache/cobol/HOSPR210.cbl)", text)
+        self.assertIn("run: python fetch.py", text)
+
+
 class ExplainTest(unittest.TestCase):
     """The evidence chain, one claim per defect. Skipped until the sources are fetched."""
 
@@ -195,7 +208,7 @@ class ExplainTest(unittest.TestCase):
         self.assertIn("cache/cobol/HOSPR210.cbl:6036", text)
         self.assertIn("MOVE HR-BILL-UNITS1  TO BILL-HIGH-RHC-DAYS", text)
         self.assertIn("FullPricerStrategy.java:79-80", text)
-        self.assertIn("highDaysCount++", text)
+        self.assertRegex(text, r"\n\s+80 \| +\S")                  # the port's line, read from the fetched port
 
     def test_c00033_the_return_code(self):
         text = explain.explain(CASE, key="C00033", field="rtc", port="java-ai")
@@ -210,7 +223,7 @@ class ExplainTest(unittest.TestCase):
         self.assertIn("port        1421.43", text)
         self.assertIn("cache/cobol/HOSPR210.cbl:6430-6434", text)
         self.assertIn("PaymentCalculator.java:78-84", text)
-        self.assertIn("dailyRate.divide(TWENTY_FOUR, 10, ROUNDING)", text)
+        self.assertRegex(text, r"\n\s+81 \| +\S")
 
     def test_c00002_the_cms_java_total(self):
         text = explain.explain(CASE, key="C00002", field="total", port="cms-java")
@@ -218,7 +231,7 @@ class ExplainTest(unittest.TestCase):
         self.assertIn("port        2162.15", text)
         self.assertIn("cache/cobol/HOSPR210.cbl:5857-5862", text)
         self.assertIn("CalculateFinalPayments.java:36-43", text)
-        self.assertIn(".setScale(2, RoundingMode.HALF_UP));", text)
+        self.assertRegex(text, r"\n\s+37 \| +\S")
 
     def test_the_repaired_port_balances_on_the_same_claims(self):
         for claim, field, _, _ in EXAMPLES:
@@ -249,52 +262,61 @@ class CitedLineTest(unittest.TestCase):
         self.assertTrue([l for l in code if "WRK-PAY-RATE2 ROUNDED" in l])
 
 
-class PatchTest(unittest.TestCase):
-    """sides/ai-port-fixes.patch: three repairs, applied to the pinned commit, nothing else."""
+class FixSpecTest(unittest.TestCase):
+    """sides/ai_port_fixes.json: line edits checked by SHA-256, holding no text of the unlicensed port."""
 
-    PORT = CASE / "cache" / "repos" / "rcaran"
-    PATCH = CASE / "sides" / "ai-port-fixes.patch"
+    SPEC_PATH = CASE / "sides" / "ai_port_fixes.json"
+    FILES = ["hospice-pricer-api/src/main/java/com/cms/hospice/pricing/FullPricerStrategy.java",
+             "hospice-pricer-api/src/main/java/com/cms/hospice/pricing/PaymentCalculator.java"]
 
-    def setUp(self):
-        if not (self.PORT / "hospice-pricer-api" / "pom.xml").is_file():
+    def spec(self):
+        return fix_port.load(self.SPEC_PATH)
+
+    def test_five_edits_in_two_files_at_the_pinned_commit(self):
+        spec = self.spec()
+        self.assertEqual(spec["commit"], "655847671859b67a188c5dae6a86c45a74bfa046")
+        self.assertEqual(fix_port.files(spec), self.FILES)
+        self.assertEqual([(e["line"], e["action"]) for e in spec["edits"]],
+                         [(79, "delete"), (80, "delete"), (85, "delete"), (86, "delete"), (81, "replace")])
+        for e in spec["edits"]:
+            self.assertRegex(e["sha256"], r"^[0-9a-f]{64}$")
+
+    def test_no_port_line_is_stored_only_its_digest(self):
+        spec = self.spec()
+        stored = {k for e in spec["edits"] for k in e} - {"file", "line", "sha256", "action", "why", "old", "new"}
+        self.assertEqual(stored, set())
+        replace = next(e for e in spec["edits"] if e["action"] == "replace")
+        self.assertLessEqual(len(replace["old"]), 16)             # a fragment of arguments, not a line
+        self.assertFalse((CASE / "sides" / "ai-port-fixes.patch").exists())
+
+    def test_a_changed_line_stops_every_edit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for rel in self.FILES:
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                (root / rel).write_bytes(b"x\r\n" * 120)
+            before = {rel: (root / rel).read_bytes() for rel in self.FILES}
+            with self.assertRaises(fix_port.FixError):
+                fix_port.apply(root, self.spec())
+            self.assertEqual({rel: (root / rel).read_bytes() for rel in self.FILES}, before)
+
+    def test_the_edits_apply_to_the_fetched_port_and_change_only_their_lines(self):
+        port = CASE / "cache" / "repos" / "rcaran"
+        if not (port / "hospice-pricer-api" / "pom.xml").is_file():
             self.skipTest("the AI port is not fetched (python fetch.py)")
-
-    def test_the_patch_touches_two_files_of_the_port_and_nothing_else(self):
-        touched = [l[len("+++ b/"):].strip() for l in self.PATCH.read_text(encoding="utf-8").splitlines()
-                   if l.startswith("+++ b/")]
-        self.assertEqual(sorted(touched), ["hospice-pricer-api/src/main/java/com/cms/hospice/pricing/"
-                                           "FullPricerStrategy.java",
-                                           "hospice-pricer-api/src/main/java/com/cms/hospice/pricing"
-                                           "/PaymentCalculator.java"])
-        for rel in touched:
-            self.assertTrue((self.PORT / rel).is_file(), rel)
-
-    def test_the_patch_applies_and_removes_exactly_the_three_defects(self):
+        self.assertEqual(fix_port.check(port, self.spec()), [])   # the published port carries the defects
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "port"
-            shutil.copytree(self.PORT, work, ignore=shutil.ignore_patterns(".git", "target"))
-            subprocess.run(["git", "init", "-q"], cwd=work, check=True)
-            r = subprocess.run(["git", "apply", str(self.PATCH)], cwd=work, capture_output=True, text=True)
-            self.assertEqual(r.returncode, 0, r.stderr)
-            src = work / "hospice-pricer-api" / "src" / "main" / "java" / "com" / "cms" / "hospice"
-            strat = (src / "pricing" / "FullPricerStrategy.java").read_text(encoding="utf-8")
-            pay = (src / "pricing" / "PaymentCalculator.java").read_text(encoding="utf-8")
-            self.assertNotIn("highDaysCount++", strat)
-            self.assertNotIn("lowDaysCount++", strat)
-            self.assertNotIn("hasHighDays = true;\n                } else {", strat)
-            self.assertNotIn("hasLowDays = true;\n                }", strat)
-            self.assertIn("divide(TWENTY_FOUR, 4, RoundingMode.DOWN)", pay)
-            # the payment arithmetic of every other level of care is untouched
-            self.assertIn("return rate.multiply(BigDecimal.valueOf(units))", pay)
-            self.assertIn("dailyRate.divide(TWENTY_FOUR, 10, ROUNDING);", pay)   # chcHourly, FY1998-2007
-
-    def test_the_published_port_still_carries_the_defects(self):
-        src = self.PORT / "hospice-pricer-api" / "src" / "main" / "java" / "com" / "cms" / "hospice"
-        strat = (src / "pricing" / "FullPricerStrategy.java").read_text(encoding="utf-8")
-        pay = (src / "pricing" / "PaymentCalculator.java").read_text(encoding="utf-8")
-        self.assertIn("highDaysCount++;", strat)
-        self.assertIn("lowDaysCount++;", strat)
-        self.assertIn("dailyRate.divide(TWENTY_FOUR, 10, ROUNDING);", pay)
+            shutil.copytree(port, work, ignore=shutil.ignore_patterns(".git", "target"))
+            self.assertEqual(fix_port.apply(work, self.spec()), self.FILES)
+            old = [l for l in (port / self.FILES[0]).read_bytes().splitlines(keepends=True)]
+            new = (work / self.FILES[0]).read_bytes().splitlines(keepends=True)
+            self.assertEqual(new, [l for n, l in enumerate(old, 1) if n not in (79, 80, 85, 86)])
+            old = (port / self.FILES[1]).read_bytes().splitlines(keepends=True)
+            new = (work / self.FILES[1]).read_bytes().splitlines(keepends=True)
+            self.assertEqual(len(new), len(old))
+            self.assertEqual([n for n, (a, b) in enumerate(zip(old, new), 1) if a != b], [81])
+            self.assertIn(b"4, RoundingMode.DOWN)", new[80])
 
 
 class OwnerRuleTest(unittest.TestCase):

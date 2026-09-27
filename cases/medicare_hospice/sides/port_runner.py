@@ -5,8 +5,8 @@ them and write the 315-byte RATEFILE records Tare weighs.
                                     fetched into cache/cms_java by fetch.py), started as a Dropwizard
                                     server with its 2021 tables and priced over POST /v2/price-claim
   --which ai --variant published    rcaran/hospice-cms-pricer-java as published, built with Maven
-  --which ai --variant fixed        the same commit with sides/ai-port-fixes.patch applied, built
-                                    with Maven into cache/build/fixed/
+  --which ai --variant fixed        the same commit with sides/ai_port_fixes.json applied by
+                                    sides/fix_port.py, built with Maven into cache/build/fixed/
 
 Tare runs it from the case root with --input <answer key input dir> --out work/runs/<side>. It reads
 <input>/billfile.dat with the BILL315 layout and writes <out>/ratefile.dat in the RATE315 layout: every
@@ -37,12 +37,13 @@ HERE = Path(__file__).resolve().parent              # the case folder
 CASE = HERE.parent
 sys.path.insert(0, str(CASE.parents[1]))
 from tare import config, localport, records  # noqa: E402
+sys.path.insert(0, str(HERE))
+import fix_port  # noqa: E402
 
 CACHE = CASE / "cache"
 CMS_JAR = CACHE / "cms_java" / "hospice-pricer-application-2.5.1.jar"
 AI_ROOT = CACHE / "repos" / "rcaran"                     # the port's root, as cloned
 AI_REPO = AI_ROOT / "hospice-pricer-api"               # its Maven module
-PATCH = HERE / "ai-port-fixes.patch"
 AI_JAR_NAME = "hospice-pricer-api-1.0.0-SNAPSHOT.jar"
 AI_MAIN = "com.cms.hospice.HospicePricerApplication"
 M2 = CACHE / "m2"                                    # the Maven repository, inside the git-ignored cache
@@ -181,19 +182,13 @@ class Server:
         return False
 
 
-def patched_files() -> list:
-    """The files ai-port-fixes.patch touches, read out of the patch itself."""
-    return [l[len("+++ b/"):].strip() for l in PATCH.read_text(encoding="utf-8").splitlines()
-            if l.startswith("+++ b/")]
-
-
 def build_ai(variant: str, env: dict) -> Path:
-    """The AI port's jar for this variant, built once per (commit, patch) under cache/build/<variant>/."""
+    """The AI port's jar for this variant, built once per (commit, fixes) under cache/build/<variant>/."""
     if not (AI_REPO / "pom.xml").is_file():
         sys.exit(f"the AI port is not in {AI_REPO}; run: python fetch.py")
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=AI_REPO, capture_output=True, text=True,
                           check=True).stdout.strip()
-    want = f"{head} {variant} " + (hashlib.sha256(PATCH.read_bytes()).hexdigest()
+    want = f"{head} {variant} " + (hashlib.sha256(fix_port.SPEC.read_bytes()).hexdigest()
                                   if variant == "fixed" else "-")
     out = CACHE / "build" / variant
     src, stamp = out / "hospice-pricer-api", out / "stamp"
@@ -205,19 +200,17 @@ def build_ai(variant: str, env: dict) -> Path:
     out.mkdir(parents=True)
     shutil.copytree(AI_REPO, src, ignore=shutil.ignore_patterns("target", ".git"))
     if variant == "fixed":
-        # The copy gets a repository of its own: git apply resolves a patch's paths against the
-        # enclosing work tree, and cache/ sits inside this one, where the port's paths do not exist.
-        subprocess.run(["git", "init", "-q", str(out)], check=True)
-        r = subprocess.run(["git", "apply", "--verbose", str(PATCH)], cwd=out, capture_output=True, text=True)
-        if r.returncode:
-            sys.exit(f"{PATCH.name} did not apply to the port at {head}:\n{r.stdout}{r.stderr}")
-        # git apply outside the port's own repository can succeed and change nothing: check it did
-        want_changed = patched_files()                       # paths relative to the port's root
-        same = [rel for rel in want_changed if (out / rel).read_bytes() == (AI_ROOT / rel).read_bytes()]
-        if same or not want_changed:
-            sys.exit(f"{PATCH.name} reported success but left {', '.join(same) or 'nothing'} unchanged "
-                     f"in {src}")
-        print(f"  applied {PATCH.name} to {', '.join(want_changed)}", flush=True)
+        spec = fix_port.load()
+        if spec["commit"] != head:
+            sys.exit(f"{fix_port.SPEC.name} is for commit {spec['commit'][:7]}, the port is at {head[:7]}")
+        try:
+            changed = fix_port.apply(out, spec)                 # paths relative to the port's root
+        except fix_port.FixError as e:
+            sys.exit(str(e))
+        same = [rel for rel in changed if (out / rel).read_bytes() == (AI_ROOT / rel).read_bytes()]
+        if same or not changed:
+            sys.exit(f"{fix_port.SPEC.name} left {', '.join(same) or 'nothing'} unchanged in {src}")
+        print(f"  applied {fix_port.SPEC.name} to {', '.join(changed)}", flush=True)
     print(f"  mvn package ({variant}; tests and coverage skipped; Maven repository {M2.name}/)", flush=True)
     r = subprocess.run([find_mvn(), "-q", "-B", f"-Dmaven.repo.local={M2}", "-DskipTests", "-Djacoco.skip=true",
                         "package"], cwd=src, env=env, capture_output=True, text=True, errors="replace")

@@ -11,7 +11,7 @@
                           commit. It has no licence file either (the GitHub API reports licenseInfo null),
                           so it is fetched at run time and never committed.
   cache/build/            the AI port's Maven build, one copy per side variant, with
-                          sides/ai-port-fixes.patch applied to the 'fixed' one.
+                          sides/ai_port_fixes.json applied to the 'fixed' one.
   cache/m2/               the Maven repository the build downloads into (a few hundred MB).
 
   python fetch.py              the three sources, verified against the digests below

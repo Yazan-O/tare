@@ -420,7 +420,7 @@
       "repo": "github.com/rcaran/hospice-cms-pricer-java, the published AI-assisted port (no licence file, GitHub API reports licenseInfo null; it ships .cursor/, .windsurf/ and .specs/ agent task files, so 'AI-assisted' is circumstantial, not declared)",
       "commit": "655847671859b67a188c5dae6a86c45a74bfa046",
       "licence": "none: fetched at run time at the pinned commit into cache/, never committed",
-      "line": "FullPricerStrategy.java:79-86 a continuous-home-care day of less than 32 units is counted as a routine home care day (highDaysCount++ / lowDaysCount++, and the flags that choose the return code), which HOSPR210.cbl's 2021-V210-CHC-0652 paragraph never does; PaymentCalculator.java:78-84 the CHC hourly rate is rounded half-up at 10 places, where the COBOL truncates",
+      "line": "FullPricerStrategy.java:79-86 a continuous-home-care day of less than 32 units is counted as a routine home care day (the two day counters are incremented, and the two flags that choose the return code are set), which HOSPR210.cbl's 2021-V210-CHC-0652 paragraph never does; PaymentCalculator.java:78-84 the CHC hourly rate is rounded half-up at 10 places, where the COBOL truncates",
       "source": "cache/repos/rcaran",
       "causes": [
         {
@@ -464,7 +464,7 @@
     },
     "java-ai-fixed": {
       "runner": "python sides/port_runner.py --which ai --variant fixed",
-      "repo": "the same port at the same commit, with sides/ai-port-fixes.patch applied in a build copy under cache/build/ (the patch is committed here; the port's own code never is)",
+      "repo": "the same port at the same commit, with the line edits of sides/ai_port_fixes.json applied by sides/fix_port.py in a build copy under cache/build/ (the edits name line numbers and SHA-256 digests only; the port's code is never committed)",
       "commit": "655847671859b67a188c5dae6a86c45a74bfa046",
       "licence": "none: the patched copy lives under cache/, never committed",
       "line": "FullPricerStrategy.java:75-87 a short continuous-home-care day pays at the RHC rate and counts as nothing; PaymentCalculator.java:78-84 the hourly rate is truncated (RoundingMode.DOWN), as the COBOL's arithmetic requires",

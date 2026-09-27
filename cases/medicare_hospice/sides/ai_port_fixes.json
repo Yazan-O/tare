@@ -1,0 +1,23 @@
+{
+  "about": "The three repairs to the AI-assisted port, as edits by file and line number. Each edit names the SHA-256 of the line it expects (the line's text without its line ending, UTF-8); sides/fix_port.py refuses to change anything unless every expected line is there. No text of the port is stored here: the port has no licence and is fetched at run time into cache/, never committed. README.md, 'What differs, and why', gives the COBOL behind each repair.",
+  "port": "rcaran/hospice-cms-pricer-java",
+  "commit": "655847671859b67a188c5dae6a86c45a74bfa046",
+  "edits": [
+    {"file": "hospice-pricer-api/src/main/java/com/cms/hospice/pricing/FullPricerStrategy.java", "line": 79,
+     "sha256": "18d4f73e36d5c6a7cfdf5ea07909e76869ff6e363531b63a1316f24c6ce49d60", "action": "delete",
+     "why": "defect 2: the high-rate RHC flag set for a short CHC day; only the RHC paragraph sets RHC-HIGH-DAY-IND (HOSPR210.cbl:6055), and the return code comes from it (:6274-6312)"},
+    {"file": "hospice-pricer-api/src/main/java/com/cms/hospice/pricing/FullPricerStrategy.java", "line": 80,
+     "sha256": "1d906611954c93129485ce8aff10654b3473be1821051c71f1a4a0e45813f34b", "action": "delete",
+     "why": "defect 1: the high-rate RHC day counter incremented for a short CHC day; only the RHC paragraph writes BILL-HIGH-RHC-DAYS (HOSPR210.cbl:6036)"},
+    {"file": "hospice-pricer-api/src/main/java/com/cms/hospice/pricing/FullPricerStrategy.java", "line": 85,
+     "sha256": "f151c0c63905e42b2d887d900857274a98952c6c469a7298f4895961ab99555c", "action": "delete",
+     "why": "defect 2: the low-rate RHC flag set for a short CHC day; only the RHC paragraph sets RHC-LOW-DAY-IND (HOSPR210.cbl:6018)"},
+    {"file": "hospice-pricer-api/src/main/java/com/cms/hospice/pricing/FullPricerStrategy.java", "line": 86,
+     "sha256": "da80461a80fba7cc1a70cd9f9c443a6048d0af60ba70c021288d7a08f960a3d3", "action": "delete",
+     "why": "defect 1: the low-rate RHC day counter incremented for a short CHC day; only the RHC paragraph writes BILL-LOW-RHC-DAYS (HOSPR210.cbl:5997)"},
+    {"file": "hospice-pricer-api/src/main/java/com/cms/hospice/pricing/PaymentCalculator.java", "line": 81,
+     "sha256": "25b068b03053e9331f19fcfd0946d63e256539a600d3ecc775cc1a4f87a6895a", "action": "replace",
+     "old": "10, ROUNDING)", "new": "4, RoundingMode.DOWN)",
+     "why": "defect 3: the CHC hourly rate rounded half-up at ten places; the COBOL truncates it (HOSPR210.cbl:6430-6434 into PIC 9(06)V9(02) at :207), as CMS's own Java does at four places"}
+  ]
+}
