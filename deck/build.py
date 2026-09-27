@@ -1,12 +1,12 @@
-"""Render Tare's cover and five-slide deck with Playwright, in the Parity Receipt page's identity.
+"""Render Tare's cover and six-slide deck with Playwright, in the Parity Receipt page's identity.
 
 Every number is read at build time from the case's committed data and two run logs, then checked:
 each number that appears on a rendered slide must be a traced fact or a listed constant.
 
   deck/cover.png              1920x1080
   deck/cover_1280x720.png     1280x720
-  deck/slides/slide_<n>.png   1920x1080, n = 1..5
-  deck/tare_slides.pdf        the five slides, one page each
+  deck/slides/slide_<n>.png   1920x1080, n = 1..6
+  deck/tare_slides.pdf        the six slides, one page each
   deck/contact_sheet.png      cover and slides at a glance
   deck/facts.json             every traced number with its source
 
@@ -17,6 +17,7 @@ import argparse
 import html
 import json
 import re
+import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -28,9 +29,13 @@ SITE = TARE / "site"
 CASE = TARE / "cases" / "taxe_fonciere"
 PROJECT = TARE.parent
 
-# Bob IDE session screenshots for slide 3: add {"src": "<path>", "caption": "..."} entries.
-# Empty: Tare's own scale images from the national weigh are shown, with their captions.
-BOB_SHOTS = []
+# Slide 3: crops of the owner's Bob IDE session (bob_sessions/, site/tools/crop_bob_shots.py).
+BOB_SHOTS = [
+    {"src": (SITE / "dist" / "img" / "bob_1_blocked.png").as_uri(), "caption": "Bob's first commit: no weigh on record"},
+    {"src": (SITE / "dist" / "img" / "bob_3_stale_edit.png").as_uri(), "caption": "Edited after the weigh: refused again"},
+]
+sys.path.insert(0, str(SITE / "tools"))
+from medicare_facts import facts as medicare_facts  # noqa: E402
 
 SITE_URL = "https://yazan-o.github.io/tare/"
 REPO_URL = "https://github.com/Yazan-O/tare"
@@ -48,7 +53,7 @@ def records(path: Path) -> dict:
     return {r["commune"]: r for r in json.loads(path.read_text(encoding="utf-8"))["files"]["retours"]}
 
 
-def gather(tests_log: Path, gate_log: Path) -> tuple[dict, dict]:
+def gather(tests_log: Path, gate_log: Path, take_log: Path) -> tuple[dict, dict]:
     F, src = {}, {}
 
     def put(key, value, source):
@@ -126,6 +131,28 @@ def gather(tests_log: Path, gate_log: Path) -> tuple[dict, dict]:
     put("gate_balanced", f"TARE BALANCED: {m.group(1)} of {m.group(2)} records balance", f"{gate_log.name}: weigh exit 0")
     if "[hook exit 0]" not in g or "HERO LOOP: PASS" not in g:
         raise SystemExit(f"{gate_log} does not end in a passing loop")
+
+    # the owner's IBM Bob IDE take, as verified frame by frame on the recording (the film's footage map)
+    t = take_log.read_text(encoding="utf-8", errors="replace")
+    for key, pat in (("take_still_red", r"Still (\d+) records differing"),
+                     ("take_coins", r"live coin counter reads \*?\*?(\d+\.\d+)"),
+                     ("take_commit", r"Committed at (\w{7})")):
+        m = re.search(pat, t)
+        if not m:
+            raise SystemExit(f"no {key} ({pat}) in {take_log}")
+        put(key, int(m.group(1)) if m.group(1).isdigit() else m.group(1), f"{take_log.name}: '{m.group(0)}'")
+    m = re.search(r"BALANCED \S+ (\d+) of (\d+) records balance", t)
+    if not m or int(m.group(1)) != F["ain_records"]:
+        raise SystemExit(f"no balanced line for {F['ain_records']} records in {take_log}")
+    for key, pat in (("take_block_1", r'"(TARE: blocked\. No weigh on record[^"]*)"'),
+                     ("take_block_2", r'"(TARE: blocked\. The port changed after the last weigh[^"]*)"')):
+        m = re.search(pat, t)
+        if not m:
+            raise SystemExit(f"no {key} in {take_log}")
+        put(key, m.group(1), f"{take_log.name}, the hook's string at tare/gate.py")
+
+    for k, (v, s) in medicare_facts().items():
+        put(f"med_{k}", v, s)
 
     run = (SITE / "dist" / "data" / "run.js").read_text(encoding="utf-8")
     RUN = json.loads(run[run.index("=") + 1:].rstrip().rstrip(";"))
@@ -214,8 +241,20 @@ figcaption{{font-size:20px;line-height:1.35;color:var(--ink-2);margin-top:12px}}
 .flow .t{{font:500 30px/1.12 var(--font);margin-top:12px;min-height:68px}}
 .flow .d{{font:400 19px/1.4 var(--mono);margin-top:10px}}
 .flow .d+.d{{border-top:1px solid var(--line);padding-top:8px;margin-top:8px}}
-.shots{{display:grid;grid-template-columns:repeat(2,540px);gap:100px;margin-top:28px}}
-.shots img{{width:520px;height:auto}}
+.shots{{display:grid;grid-template-columns:repeat(2,820px);gap:40px;margin-top:30px;align-items:start}}
+.shots img{{width:820px;height:auto}}
+.cap3{{position:absolute;left:120px;bottom:48px;font:400 22px/1.3 var(--mono);color:var(--ink-2)}}
+
+/* slide 5, act two */
+table.med{{margin-top:56px}}
+table.med td{{padding:26px 0 26px 20px;vertical-align:baseline}}
+table.med td:first-child{{width:560px}}
+table.med td .code{{display:block;font:400 20px/1.3 var(--mono);color:var(--ink-2);margin-top:6px}}
+table.med td .of{{font-size:.55em;color:var(--ink-2)}}
+table.med td:nth-child(2){{font-size:60px;letter-spacing:-.03em;width:380px}}
+table.med td.what{{text-align:left;white-space:normal;font:400 26px/1.35 var(--font)}}
+.mednote{{position:absolute;left:120px;right:120px;bottom:72px;border-top:1px solid var(--line);padding-top:22px}}
+.mednote p{{font:400 24px/1.4 var(--font);color:var(--ink-2);max-width:1500px}}
 
 /* slide 4 */
 .s4{{display:grid;grid-template-columns:600px 600px 1fr;gap:56px;margin-top:28px}}
@@ -239,8 +278,11 @@ figcaption{{font-size:20px;line-height:1.35;color:var(--ink-2);margin-top:12px}}
 """
 
 
+SLIDES = 6
+
+
 def top(left: str, n: int) -> str:
-    return f'<div class="top"><span>{left}</span><span>{n} / 5</span></div>'
+    return f'<div class="top"><span>{left}</span><span>{n} / {SLIDES}</span></div>'
 
 
 def cover(F) -> str:
@@ -309,22 +351,42 @@ def slide2(F) -> str:
 
 def slide3(F) -> str:
     steps = [
-        ("Commit blocked", [f'<span class="red">{html.escape(F["gate_blocked"])}</span>']),
+        ("Commit blocked", ['<span class="red">No weigh on record</span>']),
         ("Weigh", [f'<span class="red">{F["ain_ai_differ"]} of {F["ain_records"]} records differ</span>']),
-        ("Two subagents, in parallel", ["fee rates", "total before fees"]),
-        ("Two fixes", ["3% and 8% fee rates put back", "waste tax added to the total"]),
-        ("Weigh", [f'{F["ain_fx_differ"]} of {F["ain_records"]} records differ', "balanced"]),
-        ("Commit", ["goes through"]),
+        ("Two subagents, in parallel", ["fee fields", "total fields"]),
+        ("Fee fix, commit", ['<span class="red">blocked again: edited after the weigh</span>']),
+        ("First totals fix", [f'<span class="red">wrong term: {F["take_still_red"]} still differ</span>', "explain, then the COBOL line"]),
+        ("Waste tax added", [f'{F["ain_records"]} of {F["ain_records"]} balance', f'committed {F["take_commit"]}']),
     ]
     flow = "".join(f'<div class="st"><p class="n">{k}</p><p class="t">{t}</p>' +
                    "".join(f'<p class="d">{d}</p>' for d in ds) + "</div>" for k, (t, ds) in enumerate(steps, 1))
-    shots = BOB_SHOTS or F["_scale"]
     figs = "".join(f'<figure><img src="{html.escape(s["src"])}" alt=""><figcaption>{html.escape(s["caption"])}</figcaption></figure>'
-                   for s in shots[:2])
-    return f"""<section class="slide">{top("Tare · the loop inside IBM Bob", 3)}
-<h1>Bob's commit stays blocked until the port balances on every record.</h1>
+                   for s in BOB_SHOTS)
+    return f"""<section class="slide">{top("Tare · recorded in IBM Bob IDE", 3)}
+<h1>Bob's commit stayed blocked until the port balanced on every record.</h1>
 <div class="flow">{flow}</div>
-<div class="shots">{figs}</div></section>"""
+<div class="shots">{figs}</div>
+<p class="cap3">The owner's IBM Bob IDE session, 2026-09-26: one prompt, {F['take_coins']} Bobcoins, stills from the screen recording.</p></section>"""
+
+
+def slide_medicare(F) -> str:
+    def v(k):
+        return F[f"med_{k}"]
+    C = v("claims")
+    rows = [("CMS's own Java migration", "Hospice Pricer 2.5.1", v("cms_java_differ"),
+             f"the claim total only, one cent each: it rounds after adding, the COBOL before", True),
+            ("AI-assisted port", "its README claims functional parity", v("java_ai_differ"),
+             f"{fmt(v('java_ai_differ_chc'))} of {fmt(v('chc_claims'))} continuous-home-care claims; "
+             f"{fmt(v('java_ai_differ_non_chc'))} of the other {fmt(v('non_chc_claims'))}", True),
+            ("The same port, three repairs", "five line edits", v("java_ai_fixed_differ"), "every field equal", False)]
+    body = "".join(f'<tr><td>{a}<span class="code">{b}</span></td><td class="{"diff" if red and n else ""}">{fmt(n)}'
+                   f'<span class="of"> of {fmt(C)}</span></td><td class="what">{w}</td></tr>' for a, b, n, w, red in rows)
+    return f"""<section class="slide">{top("Tare · act two, US Medicare hospice", 5)}
+<h1>Another agency's COBOL, the same test: CMS's own hospice pricer is the answer key.</h1>
+<table class="med"><thead><tr><th>Java port, weighed against CMS's FY2021 COBOL</th><th>Claims that differ</th><th style="text-align:left">Where</th></tr></thead><tbody>{body}</tbody></table>
+<div class="mednote">
+  <p>{fmt(C)} claims constructed from public CMS tables, seed-fixed, no person's data. For scale, Medicare's hospice payment system paid about {v('medpac_hospice_2024')} in 2024 (MedPAC, March 2026, chapter 10).</p>
+</div></section>"""
 
 
 def slide4(F) -> str:
@@ -347,9 +409,9 @@ def slide4(F) -> str:
 </div></section>"""
 
 
-def slide5(F) -> str:
+def slide6(F) -> str:
     scale = F["_scale"][1]["src"]
-    return f"""<section class="slide">{top("Tare · check it yourself", 5)}
+    return f"""<section class="slide">{top("Tare · check it yourself", 6)}
 <h1>The old program stopped the AI's commit, then graded its repair.</h1>
 <div class="s5">
   <div>
@@ -405,8 +467,12 @@ FORBIDDEN_TEXT = re.compile(r"Empower|Unlock|Transform|Streamline|Seamless|Super
                             r"interest|billion|5[.,]996|overcharg|\bloss\b", re.I)  # copy and claims, in the rendered text
 CONSTANTS = {"2018": "tax year of the calculator and of the REI data",
              "3": "the 3% fee tier", "8": "the 8% fee tier", "01": "Ain's département code",
-             HERO: "the commune code of record 01001", "5": "slide count", "1": "slide or step number",
-             "2": "step number; two defects", "4": "step number", "6": "step number"}
+             HERO: "the commune code of record 01001", "5": "slide number", "1": "slide or step number",
+             "2": "step number; two defects", "4": "step number", "6": "step number; slide count",
+             "2026": "year of the Bob session and of the MedPAC report", "09": "month of the Bob session",
+             "26": "day of the Bob session", "2024": "MedPAC's payment year", "10": "MedPAC chapter"}
+# A quoted figure, allowed only in this exact sentence with its source (site/tools/medicare_facts.py MEDPAC).
+CITED = re.compile(r"about \$(28)\.3 billion in 2024 \(MedPAC, March 2026, chapter 10\)")
 
 
 def allowed(F) -> dict:
@@ -422,6 +488,7 @@ def allowed(F) -> dict:
 
 
 def check_numbers(text: str, ok: dict, where: str) -> list:
+    text = CITED.sub("about [MedPAC] in 2024 (MedPAC, March 2026, chapter 10)", text)
     bad = [f"{where}: forbidden '{m.group(0)}'" for m in FORBIDDEN_TEXT.finditer(text)]
     for tok in re.findall(r"(?<![\w.:/])\d[\d,]*(?![\w])", text):
         tok = tok.rstrip(",")
@@ -456,8 +523,10 @@ def main():
     ap.add_argument("--tests-log", type=Path,
                     default=PROJECT / "_runs" / "2026-09-26_no_interest" / "taxe_fonciere" / "RUN_LOG.txt")
     ap.add_argument("--gate-log", type=Path, default=PROJECT / "_runs" / "2026-09-26_hero_loop" / "TRANSCRIPT.txt")
+    ap.add_argument("--take-log", type=Path,
+                    default=PROJECT / "_runs" / "2026-09-26_film" / "A_weigh_station" / "FOOTAGE_MAP.md")
     a = ap.parse_args()
-    F, src = gather(a.tests_log, a.gate_log)
+    F, src = gather(a.tests_log, a.gate_log, a.take_log)
 
     build = DECK / "build"
     build.mkdir(exist_ok=True)
@@ -465,7 +534,8 @@ def main():
     cover_html = build / "cover.html"
     deck_html = build / "deck.html"
     cover_html.write_text(page(cover(F), False), encoding="utf-8")
-    deck_html.write_text(page("".join(s(F) for s in (slide1, slide2, slide3, slide4, slide5)), True), encoding="utf-8")
+    deck_html.write_text(page("".join(s(F) for s in (slide1, slide2, slide3, slide4, slide_medicare, slide6)), True),
+                         encoding="utf-8")
 
     for p in (cover_html, deck_html):
         text = re.sub(r"<script>.*?</script>", "", p.read_text(encoding="utf-8"), flags=re.S)
@@ -488,7 +558,7 @@ def main():
         pg.goto(deck_html.as_uri(), wait_until="load", timeout=240000)   # two commune maps take about 40 s
         pg.evaluate("document.fonts.ready")
         slides = pg.query_selector_all("section.slide")
-        assert len(slides) == 5
+        assert len(slides) == SLIDES
         for k, el in enumerate(slides, 1):
             el.screenshot(path=str(DECK / "slides" / f"slide_{k}.png"))
             bad += check_numbers(el.inner_text(), ok, f"slide {k}")
@@ -497,7 +567,7 @@ def main():
     if bad:
         raise SystemExit("numbers without a source:\n  " + "\n  ".join(bad))
 
-    shots = [DECK / "cover.png"] + [DECK / "slides" / f"slide_{k}.png" for k in range(1, 6)]
+    shots = [DECK / "cover.png"] + [DECK / "slides" / f"slide_{k}.png" for k in range(1, SLIDES + 1)]
     contact_sheet(shots, DECK / "contact_sheet.png")
     (DECK / "facts.json").write_text(json.dumps({k: {"value": F[k], "source": src[k]} for k in src}, ensure_ascii=False, indent=1),
                                      encoding="utf-8", newline="\n")
